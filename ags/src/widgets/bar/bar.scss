@@ -1,0 +1,149 @@
+@use "../../lib/animations" as animations;
+
+$primary-color: #00bcd4; // Teal
+$secondary-color: #673ab7; // Purple
+
+.bar {
+  margin-bottom: 5px;
+
+  $all-modules: "launcher", "workspaces", "sysinfo", "systray", "player", "info",
+    "media", "power";
+
+  @each $module in $all-modules {
+    .#{$module} {
+      .widget {
+        border-radius: 10px;
+
+        // background-image: url("/home/biskyy/.config/ags/src/assets/ags_bg_noise.png");
+        background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");
+        background-blend-mode: overlay; // for hover effect
+        background-size: 3840px 216px;
+        background-repeat: no-repeat;
+
+        margin: 10px;
+        padding: 7px 14px;
+
+        // TODO: add shrinking animation later when ags v2 releases
+        // transition: all 200ms linear;
+
+        box-shadow: 0px 0px 7px black;
+      }
+
+      &:not(.workspaces):not(.systray):hover > .widget {
+        background-color: rgba(0, 0, 0, 0.2);
+      }
+
+      // TODO shrink animation
+      // &:active > .widget {
+      //   transition: all 200ms linear;
+      //   border-radius: 8px;
+      //   padding: 5px 12px;
+      //   margin: 12px;
+      // }
+    }
+  }
+
+  .launcher {
+    .widget {
+      background-position: 5%;
+    }
+  }
+
+  .workspaces {
+    .widget {
+      background-position: 10%;
+    }
+
+    // TODO: animate changing active workspace
+    .widget > button {
+      background-color: transparent;
+      min-width: 24px;
+      border-radius: 5px;
+    }
+
+    .widget > .active {
+      background-color: rgba(0, 0, 0, 0.3);
+      box-shadow: 0px 0px 3px black;
+    }
+
+    // & > .widget > .inactive {
+    //   // transition: background-color 200ms linear, box-shadow 200ms linear; // Add transition here
+    //   background-color: rgba(0, 0, 0, 0);
+    // }
+
+    .widget > .inactive:hover {
+      transition: all 100ms linear;
+      background-color: rgba(0, 0, 0, 0.2);
+      box-shadow: 0px 0px 3px black;
+    }
+  }
+
+  .sysinfo {
+    .widget {
+      background-position: 25%;
+    }
+  }
+
+  .systray {
+    .widget {
+      background-position: 30%;
+      padding: 6px 14px;
+    }
+
+    button {
+      padding: 0px {
+        left: 4px;
+        right: 4px;
+      }
+      border-radius: 5px;
+    }
+    button:hover {
+      transition: all 100ms linear;
+      background-color: rgba(0, 0, 0, 0.2);
+      box-shadow: 0px 0px 3px black;
+    }
+  }
+
+  .player {
+    .widget {
+      background-position: center;
+    }
+  }
+
+  .media {
+    .widget {
+      background-position: 88%;
+    }
+  }
+
+  .info {
+    .widget {
+      background-position: 90%;
+    }
+  }
+
+  .power {
+    .widget {
+      background-position: 95%;
+    }
+  }
+}
+
+menu {
+  background-color: transparentize($color: black, $amount: 0.3);
+  padding: 10px;
+  border-radius: 10px;
+
+  menuitem {
+    border-radius: 10px;
+    label {
+      padding: 2px 8px;
+    }
+  }
+}
+
+menubar {
+  menuitem {
+    padding: 4px;
+  }
+}

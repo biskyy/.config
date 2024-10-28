@@ -1,0 +1,28 @@
+@use "lib/animations";
+@use "lib/colors";
+
+@use "widgets/bar/bar";
+@use "widgets/player/player";
+@use "widgets/media/media";
+
+* {
+  all: initial;
+
+  font: {
+    family: SFMono Nerd Font Mono, JetBrainsMono NF;
+    size: 14px;
+    weight: bold;
+  }
+
+  // label {
+  //   color: colors.$text;
+  // }
+
+  // image {
+  //   color: colors.$text;
+  // }
+}
+
+.icon {
+  font-family: JetBrainsMono NF;
+}

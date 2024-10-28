@@ -1,0 +1,94 @@
+// @use "animations";
+@use "../../lib/colors";
+
+.media {
+  // @include animations.flyin("&", "top");
+
+  min-width: 480px;
+
+  .layout-box {
+    margin-right: 20px;
+
+    background: url("/home/biskyy/.config/ags/src/assets/ags_photo_fhd.png");
+    background-position: center center;
+    background-size: 200% 200%;
+
+    border-radius: 5px;
+    padding: 15px;
+
+    .volume-box {
+      margin: 5px 0px;
+
+      .device {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 5px;
+        &:hover {
+          background-color: rgba(0, 0, 0, 0.5);
+        }
+      }
+
+      .mute label {
+        font: {
+          size: 1.25em;
+          weight: bolder;
+        }
+      }
+
+      contents {
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 5px;
+        margin-top: 10px;
+
+        slider {
+          background-color: colors.$secondary;
+          border-radius: 5px;
+          min-height: 10px;
+        }
+
+        highlight {
+          background-color: colors.$secondary;
+          border-radius: 5px;
+        }
+      }
+
+      .name {
+        // @include animations.fade("&:hover", colors.$primary, colors.$accent);
+        // @include animations.fade("&:active", colors.$accent, colors.$primary);
+
+        // background-color: rgba(0, 0, 0, 0.3);
+        // &:hover {
+        //   background-color: rgba(0, 0, 0, 0.5);
+        // }
+        padding: 0px 10px;
+        border-radius: 5px;
+      }
+
+      .default {
+        // background-color: colors.$secondary;
+      }
+    }
+  }
+
+  .mixer {
+    .buttons button {
+      // @include animations.fade(
+      //   "&:hover",
+      //   colors.$primary,
+      //   colors.$accent,
+      //   $property: "background-color"
+      // );
+      // @include animations.fade(
+      //   "&:active",
+      //   colors.$accent,
+      //   colors.$primary,
+      //   $property: "background-color"
+      // );
+
+      background-color: colors.$primary;
+      border-radius: 20px;
+      label {
+        padding: 10px;
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+modmap:
+  - name: CapsLock to Ctrl
+    remap:
+      CapsLock: Ctrl_R
+keymap:
+  - name: Ctrl+IJKL to Arrow Keys
+    remap:
+      C-i: Up
+      C-k: Down
+      C-j: Left
+      C-l: Right

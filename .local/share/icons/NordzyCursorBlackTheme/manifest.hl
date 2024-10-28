@@ -1,0 +1,4 @@
+name = NordzyCursorBlackTheme
+description = Hyprcursor port of https://github.com/alvatip/Nordzy-cursors.
+version = 0.1
+cursors_directory = hyprcursors

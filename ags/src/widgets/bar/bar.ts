@@ -8,6 +8,9 @@ import SystemTray from "resource:///com/github/Aylur/ags/service/systemtray.js";
 import Network from "resource:///com/github/Aylur/ags/service/network.js";
 import Audio from "resource:///com/github/Aylur/ags/service/audio.js";
 import Bluetooth from "resource:///com/github/Aylur/ags/service/bluetooth.js";
+// import Battery from "resource:///com/github/Aylur/ags/service/battery.js";
+import Battery, { BatteryState } from "src/services/battery";
+import Brightness from "src/services/brightness";
 
 import * as MprisState from "src/lib/mpris";
 import Mpris from "resource:///com/github/Aylur/ags/service/mpris.js";
@@ -40,7 +43,7 @@ const BarLauncherHandler = () => {
     transitionDuration: 500,
     className: "launcher-revealer",
     css: "padding-left: 10px;",
-    child: Widget.Label("Launcher"),
+    child: Widget.Label("launcher"),
   });
 
   const BarLauncher = BarWidget({
@@ -59,9 +62,13 @@ const BarLauncherHandler = () => {
     },
     box: {
       children: [
-        Widget.Icon({
-          icon: "/home/biskyy/.config/ags/src/assets/launcher.png",
-          size: 16,
+        // Widget.Icon({
+        //   icon: "/home/biskyy/.config/ags/src/assets/launcher.png",
+        //   size: 7,
+        // }),
+        Widget.Label({
+          label: "   ",
+          className: "icon",
         }),
         LauncherRevealer,
       ],
@@ -102,8 +109,8 @@ const BarWorkspaces = BarWidget({
       widget.hook(Hyprland, (widget) => {
         // persistent workspaces
         const workspaces = [
-          { id: 1, glyph: "     " },
-          { id: 2, glyph: " " },
+          { id: 1, glyph: " " },
+          { id: 2, glyph: "     " },
           { id: 3, glyph: " " },
           { id: 4, glyph: "    " },
         ];
@@ -124,36 +131,13 @@ const BarWorkspaces = BarWidget({
                 label: ws.glyph,
               }),
             }),
-            on_primary_click: () =>
+            onPrimaryClick: () =>
               Utils.execAsync(`hyprctl dispatch workspace ${ws.id}`),
           })
         );
       });
     },
   },
-});
-
-const BarSysTray = Widget.Revealer({
-  transition: "slide_left",
-  transitionDuration: 500,
-  child: BarWidget({
-    className: "systray",
-    box: {
-      spacing: 14,
-      children: SystemTray.bind("items").transform((items) => {
-        return items.map((item) =>
-          Widget.Button({
-            // @ts-ignore
-            onPrimaryClick: () => item.openMenu(null),
-            child: Widget.Icon({
-              icon: item.bind("icon"),
-              size: 18,
-            }),
-          })
-        );
-      }),
-    },
-  }),
 });
 
 const BarSysInfo = BarWidget({
@@ -191,6 +175,30 @@ const BarSysInfo = BarWidget({
       }),
     ],
   },
+});
+
+const BarSysTray = Widget.Revealer({
+  transition: "slide_left",
+  transitionDuration: 500,
+  child: BarWidget({
+    className: "systray",
+    box: {
+      spacing: 14,
+      children: SystemTray.bind("items").transform((items) => {
+        return items.map((item) =>
+          Widget.Button({
+            // @ts-ignore
+            onPrimaryClick: () => item.openMenu(null),
+            child: Widget.Icon({
+              icon: item.bind("icon"),
+              size: 7,
+              setup: (self) => (self.size = 7),
+            }),
+          })
+        );
+      }),
+    },
+  }),
 });
 
 const BarPlayer = BarWidget({
@@ -270,21 +278,21 @@ const BarMedia = BarWidget({
         "speaker-changed"
       );
     },
-    on_primary_click: () => WindowHandler.toggleWindow("media"),
+    onPrimaryClick: () => WindowHandler.toggleWindow("media"),
   },
   box: {
     spacing: 10,
     children: [
       Widget.EventBox({
-        on_scroll_up: () => {
-          const speaker = Audio.speaker;
-          if (speaker) speaker.volume += 0.05;
-        },
-        on_scroll_down: () => {
+        onScrollUp: () => {
           const speaker = Audio.speaker;
           if (speaker) speaker.volume -= 0.05;
         },
-        on_middle_click: () => {
+        onScrollDown: () => {
+          const speaker = Audio.speaker;
+          if (speaker) speaker.volume += 0.05;
+        },
+        onMiddleClick: () => {
           const speaker = Audio.speaker;
           if (speaker) speaker.is_muted = !speaker.is_muted;
         },
@@ -295,7 +303,6 @@ const BarMedia = BarWidget({
             Widget.Label({ className: "icon" }).hook(
               Audio,
               (widget) => {
-                console.log(Audio.speaker.stream?.port);
                 if (!Audio.speaker) widget.label = " ";
                 else if (Audio.speaker.is_muted) widget.label = " ";
                 else if (
@@ -319,7 +326,6 @@ const BarMedia = BarWidget({
                 if (!Audio.speaker) return;
 
                 widget.label = `${Math.ceil(Audio.speaker.volume * 100)}%`;
-                // widget.visible = !Audio.speaker.is_muted;
               },
               "speaker-changed"
             ),
@@ -327,15 +333,15 @@ const BarMedia = BarWidget({
         }),
       }),
       Widget.EventBox({
-        on_scroll_up: () => {
-          const microphone = Audio.microphone;
-          if (microphone) microphone.volume += 0.05;
-        },
-        on_scroll_down: () => {
+        onScrollUp: () => {
           const microphone = Audio.microphone;
           if (microphone) microphone.volume -= 0.05;
         },
-        on_middle_click: () => {
+        onScrollDown: () => {
+          const microphone = Audio.microphone;
+          if (microphone) microphone.volume += 0.05;
+        },
+        onMiddleClick: () => {
           const microphone = Audio.microphone;
           if (microphone) microphone.is_muted = !microphone.is_muted;
         },
@@ -347,7 +353,7 @@ const BarMedia = BarWidget({
               Audio,
               (widget) => {
                 if (!Audio.microphone || Audio.microphone.is_muted)
-                  widget.label = "         ";
+                  widget.label = "        ";
                 else widget.label = "  ";
               },
               "microphone-changed"
@@ -359,7 +365,6 @@ const BarMedia = BarWidget({
                 if (!Audio.microphone) return;
 
                 widget.label = `${Math.ceil(Audio.microphone.volume * 100)}%`;
-                // widget.visible = !Audio.microphone.is_muted;
               },
               "microphone-changed"
             ),
@@ -370,123 +375,144 @@ const BarMedia = BarWidget({
   },
 });
 
-const cock_revealer = Widget.Revealer({
-  transition: "slide_left",
-  transitionDuration: 500,
-  css: "padding-left: 10px;", // add padding when shown
-  child: Widget.Label().poll(1000, (widget) => {
-    const datetime = new Date();
-    const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-      datetime.getDay()
-    ];
-    const month = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ][datetime.getMonth()];
-    const year = datetime.getFullYear();
-    const date = String(datetime.getDate()).padStart(2, "0");
-    widget.label = `${day}, ${date} ${month} ${year}`;
-  }),
-});
-
-const BarCockInfo = Widget.EventBox({
-  className: "clock",
-  on_hover: () => (cock_revealer.reveal_child = true),
-  on_hover_lost: () => (cock_revealer.reveal_child = false),
-  child: Widget.Box({
-    children: [
-      Widget.Label({
-        className: "glyph",
-      }).poll(
-        1000,
-        (widget) =>
-          (widget.label = new Date().toLocaleTimeString("en-gb", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }))
-      ),
-      cock_revealer,
-    ],
-  }),
-});
-
-const network_revealer = Widget.Revealer({
+const batteryRevealer = Widget.Revealer({
   transition: "slide_left",
   transitionDuration: 500,
   css: "padding-left: 5px;", // add padding when shown
   child: Widget.Label({
-    label: Network.wifi.bind("ssid").transform((ssid) => ssid || "Offline"),
+    label: Battery.bind("percentage").transform(
+      (percent) => `${percent.toString()}%`
+    ),
   }),
 });
 
-const BarNetworkInfo = Widget.EventBox({
-  className: "network",
-  on_hover: () => (network_revealer.reveal_child = true),
-  on_hover_lost: () => (network_revealer.reveal_child = false),
-  child: Widget.Box({
-    children: [
-      Widget.Label({
-        className: "disconnected", // disconnected initially
-      }).hook(Network, (widget) => {
-        if (!Network.wifi || !Network.wired) return;
+const BarBattery = () => {
+  let state = Battery.bind("state");
 
-        widget.class_name = Network.wifi.internet;
+  return Widget.EventBox({
+    // button doesnt work here because for some reason :hover won't work in css :DDDDDDDDDDDDDDD
+    class_name: "battery-info button",
+    onScrollUp: () => (Brightness.screen_brightness += 0.1),
+    onScrollDown: () => (Brightness.screen_brightness -= 0.1),
+    onHover: () =>
+      state.emitter.state !== BatteryState.Charging
+        ? (batteryRevealer.reveal_child = true)
+        : null,
+    onHoverLost: () =>
+      state.emitter.state !== BatteryState.Charging
+        ? (batteryRevealer.reveal_child = false)
+        : null,
+    onPrimaryClick: () => WindowHandler.toggleWindow("glance", "battery-and-power"),
+    child: Widget.Box({
+      hexpand: true,
+      vexpand: true,
+      children: [
+        Widget.Label({
+          class_name: "icon",
+          label: " ",
+        })
+          .hook(
+            Battery,
+            (self) => {
+              if (
+                Battery.state === BatteryState.NotCharging &&
+                Battery.pluggedIn // which means it's at the threshold of 80%
+              ) {
+                self.label = " ";
+              } else if (Battery.state === BatteryState.Charging) {
+                self.label = "";
+                batteryRevealer.reveal_child = true;
+              } else self.label = Battery.icon;
+            },
+            "battery-changed"
+          )
+          .hook(
+            Battery,
+            () => {
+              if (
+                batteryRevealer.reveal_child &&
+                (Battery.state === BatteryState.Discharging ||
+                  Battery.state === BatteryState.NotCharging)
+              )
+                batteryRevealer.reveal_child = false;
+            },
+            "state-changed"
+          ), // additional hook to hide the revealer once battery stops charges
+        batteryRevealer,
+      ],
+    }),
+  });
+};
 
-        if (Network.primary === "wired") widget.label = " ";
-        else if (Network.wifi.internet === "connected")
-          widget.label = symbolicStrength({
-            value: Network.wifi.strength,
-            array: ["󰤯 ", "󰤟 ", "󰤢 ", "󰤥 "],
-          });
-        else if (Network.wifi.internet === "connecting")
-          widget.label = symbolicStrength({
-            value: Network.wifi.strength,
-            array: ["󰤫 ", "󰤠 ", "󰤣 ", "󰤦 "],
-          });
-        else widget.label = "󰤭 ";
-      }),
-      network_revealer,
-    ],
-  }),
+const BarNetwork = () =>
+  Widget.Button({
+    className: "network-info button",
+    onPrimaryClick: () => WindowHandler.toggleWindow("glance", "internet"),
+    child: Widget.Label({
+      classNames: ["icon", "disconnected"], // disconnected initially
+    }).hook(Network, (widget) => {
+      if (!Network.wifi || !Network.wired) return;
+
+      widget.class_names = ["icon", `${Network.wifi.internet}`];
+
+      if (Network.primary === "wired") widget.label = " ";
+      else if (Network.wifi.internet === "connected")
+        widget.label = symbolicStrength({
+          value: Network.wifi.strength,
+          array: ["󰤯    ", "󰤟    ", "󰤢    ", "󰤥    ", "󰤨    "],
+        });
+      else if (Network.wifi.internet === "connecting") {
+        widget.label =
+          symbolicStrength({
+            value: Network.wifi.strength ?? -1,
+            array: ["󰤫    ", "󰤠    ", "󰤣    ", "󰤦    ", "󰤩    "],
+          }) ?? "󰤫    ";
+        /**  reason for ?? is to prevent an error log:
+         * if you disconnect from cellular and reconnect
+         * then for some reason symbolicStrength
+         * will return undefined(?????) */
+      } else widget.label = "󰤭    ";
+    }),
+  });
+
+const currentTime = Variable("", {
+  poll: [
+    1000,
+    () =>
+      new Date()
+        .toLocaleTimeString("ro-RO", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+        .replace(/ (a.m.|p.m.)/i, ""),
+  ],
 });
+
+const BarTime = () =>
+  Widget.Button({
+    className: "time-info button",
+    child: Widget.Label({
+      className: "time",
+      label: currentTime.bind(),
+    }),
+  });
 
 const BarInfo = BarWidget({
   className: "info",
-  eventbox: {
-    on_primary_click: () => WindowHandler.toggleWindow("glance"),
-  },
   box: {
     spacing: 10,
-    children: [BarNetworkInfo, BarCockInfo],
+    children: [BarBattery(), BarNetwork(), BarTime()],
   },
-});
-
-const power_revealer = Widget.Revealer({
-  transition: "slide_left",
-  transitionDuration: 500,
-  child: Widget.Label("exit"),
-  css: "padding-left: 10px;", // add padding when shown
 });
 
 const BarPower = BarWidget({
   className: "power",
   eventbox: {
-    on_primary_click: () => WindowHandler.toggleWindow("powermenu"),
-    on_hover: () => (power_revealer.reveal_child = true),
-    on_hover_lost: () => (power_revealer.reveal_child = false),
+    onPrimaryClick: () => WindowHandler.toggleWindow("powermenu"),
   },
   box: {
-    children: [Widget.Label({ label: "⏼" })],
+    children: [Widget.Label({ label: "  " })],
   },
 });
 
@@ -546,7 +572,7 @@ const BarPower = BarWidget({
 //   if (!BarRevealerState.hovered) BarRevealer.reveal_child = false;
 // });
 
-const Bar = (monitor = 1) =>
+const Bar = (monitor = 0) =>
   Widget.Window({
     name: "bar",
     monitor: monitor,

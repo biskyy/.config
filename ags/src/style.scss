@@ -4,13 +4,14 @@
 @use "widgets/bar/bar";
 @use "widgets/player/player";
 @use "widgets/media/media";
+@use "widgets/glance/glance";
 
 * {
   all: initial;
 
   font: {
-    family: SFMono Nerd Font Mono, JetBrainsMono NF;
-    size: 14px;
+    family: Liga SFMono Nerd Font, JetBrainsMono NF;
+    size: 11px;
     weight: bold;
   }
 

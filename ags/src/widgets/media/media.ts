@@ -2,6 +2,39 @@ import Gtk from "gi://Gtk?version=3.0";
 import Audio from "resource:///com/github/Aylur/ags/service/audio.js";
 import { truncate } from "src/lib/utils";
 
+const DeviceButton = ({
+  icon = "",
+  iconEventbox = {},
+  deviceName = "",
+  deviceNameEventbox = {},
+  secondIcon = "",
+  secondIconEventbox = {},
+}) =>
+  Widget.CenterBox({
+    className: "device-button",
+    startWidget: Widget.Button({
+      ...iconEventbox,
+      className: "icon-button",
+      child: Widget.Label({
+        label: icon,
+        className: "icon",
+      }),
+    }),
+    centerWidget: Widget.Button({
+      ...deviceNameEventbox,
+      className: "device-name",
+      child: Widget.Label({ label: deviceName }),
+    }),
+    endWidget: Widget.Button({
+      ...secondIconEventbox,
+      className: "icon-button",
+      child: Widget.Label({
+        label: secondIcon,
+        className: "icon",
+      }),
+    }),
+  });
+
 const MediaDevice = ({
   icon,
   iconEventbox = {},
@@ -20,31 +53,18 @@ const MediaDevice = ({
   return Widget.Box({
     className: "media-device",
     orientation: Gtk.Orientation.VERTICAL,
+    spacing: 5,
     children: [
-      Widget.Box({
-        children: [
-          Widget.Button({
-            ...iconEventbox,
-            className: "icon-button",
-            child: Widget.Label({
-              label: icon,
-              className: "icon",
-            }),
-          }),
-          Widget.Button({
-            ...deviceNameEventbox,
-            onPrimaryClick: () =>
-              (devicesRevealer.reveal_child = !devicesRevealer.reveal_child),
-            className: "device-name",
-            child: Widget.Label({ label: deviceName, className: "name" }),
-          }),
-          Widget.Button({
-            className: "list-devices-button",
-            onPrimaryClick: () =>
-              (devicesRevealer.reveal_child = !devicesRevealer.reveal_child),
-            child: Widget.Label({ label: " ", className: "icon" }),
-          }),
-        ],
+      DeviceButton({
+        icon,
+        iconEventbox,
+        deviceName,
+        deviceNameEventbox,
+        secondIcon: "   ",
+        secondIconEventbox: {
+          onPrimaryClick: () =>
+            (devicesRevealer.reveal_child = !devicesRevealer.reveal_child),
+        },
       }),
       devicesRevealer,
       Widget.Slider({
@@ -66,7 +86,7 @@ const Media = () =>
     anchor: ["top", "right"],
     child: Widget.Box({
       className: "layout-box",
-      // spacing: 10,
+      spacing: 5,
       orientation: Gtk.Orientation.VERTICAL,
       children: [
         MediaDevice({
@@ -104,7 +124,7 @@ const Media = () =>
           },
           otherDevices: Widget.Box({
             orientation: Gtk.Orientation.VERTICAL,
-            hpack: "start",
+            hpack: "center",
             setup: (widget) =>
               widget.hook(
                 Audio,
@@ -112,16 +132,16 @@ const Media = () =>
                   (widget.children = Audio.speakers
                     .filter((speaker) => speaker.name !== Audio.speaker?.name)
                     .map((speaker) =>
-                      Widget.Button({
-                        onPrimaryClick: () => (Audio.speaker = speaker),
-                        child: Widget.Label({
-                          hpack: "start",
-                          hexpand: true,
-                          label: truncate(
-                            speaker.description ?? "Invalid Device",
-                            38
-                          ),
-                        }),
+                      DeviceButton({
+                        deviceName: truncate(
+                          speaker.name ?? "Invalid Device",
+                          38
+                        ),
+                        deviceNameEventbox: {
+                          onPrimaryClick: () => {
+                            Audio.speaker = speaker;
+                          },
+                        },
                       })
                     )),
                 "speaker-changed"
@@ -129,7 +149,7 @@ const Media = () =>
           }),
         }),
         MediaDevice({
-          icon: " ",
+          icon: "",
           iconEventbox: {
             onPrimaryClick: () => {
               const microphone = Audio.microphone;
@@ -140,8 +160,8 @@ const Media = () =>
                 Audio,
                 (widget) => {
                   widget.child.label = Audio.microphone?.is_muted
-                    ? "    "
-                    : " ";
+                    ? "     "
+                    : "";
                 },
                 "microphone-changed"
               ),
@@ -166,8 +186,7 @@ const Media = () =>
           },
           otherDevices: Widget.Box({
             orientation: Gtk.Orientation.VERTICAL,
-            // spacing: 10,
-            hpack: "start",
+            hpack: "center",
             setup: (widget) => {
               widget.hook(
                 Audio,
@@ -176,19 +195,19 @@ const Media = () =>
                     .filter(
                       (microphone) => microphone.name !== Audio.microphone?.name
                     )
-                    .map((microphone) => {
-                      const label = "  " + microphone.description;
-
-                      return Widget.Button({
-                        className: "name",
-                        onPrimaryClick: () => (Audio.microphone = microphone),
-                        child: Widget.Label({
-                          hpack: "start",
-                          hexpand: true,
-                          label: truncate(label, 46),
-                        }),
-                      });
-                    });
+                    .map((microphone) =>
+                      DeviceButton({
+                        deviceName: truncate(
+                          microphone.description ?? "Invalid Device",
+                          38
+                        ),
+                        deviceNameEventbox: {
+                          onPrimaryClick: () => {
+                            Audio.microphone = microphone;
+                          },
+                        },
+                      })
+                    );
                 },
                 "microphone-changed"
               );

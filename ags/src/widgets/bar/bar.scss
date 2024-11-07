@@ -17,19 +17,19 @@ $secondary-color: #673ab7; // Purple
         // background-image: url("/home/biskyy/.config/ags/src/assets/ags_bg_noise.png");
         background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");
         background-blend-mode: overlay; // for hover effect
-        background-size: 3840px 216px;
+        background-size: 1920px 108px;
         background-repeat: no-repeat;
 
-        margin: 10px;
-        padding: 7px 14px;
+        margin: 6px 6px;
+        padding: 6px 10px;
 
         // TODO: add shrinking animation later when ags v2 releases
         // transition: all 200ms linear;
 
-        box-shadow: 0px 0px 7px black;
+        box-shadow: 0px 0px 5px black;
       }
 
-      &:not(.workspaces):not(.systray):hover > .widget {
+      &:not(.workspaces):not(.systray):not(.info):hover > .widget {
         background-color: rgba(0, 0, 0, 0.2);
       }
 
@@ -66,8 +66,9 @@ $secondary-color: #673ab7; // Purple
       box-shadow: 0px 0px 3px black;
     }
 
+    // TODO: add animation
     // & > .widget > .inactive {
-    //   // transition: background-color 200ms linear, box-shadow 200ms linear; // Add transition here
+    // transition: background-color 200ms linear, box-shadow 200ms linear;
     //   background-color: rgba(0, 0, 0, 0);
     // }
 
@@ -118,6 +119,24 @@ $secondary-color: #673ab7; // Purple
 
   .info {
     .widget {
+      .button,
+      // handle the special eventbox :DDD
+      box {
+        padding: 0px 4px;
+        border-radius: 5px;
+      }
+
+      .button:hover {
+        background-color: rgba(0, 0, 0, 0.2);
+      }
+
+      // .time-info {
+      // min-height: 20px;
+      // padding: 0px 0px;
+      // }
+
+      padding: 5px 10px;
+      // margin: 0px;
       background-position: 90%;
     }
   }

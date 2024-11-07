@@ -3,10 +3,11 @@
 
 .player {
   // @include animations.flyin("&", "top");
-  min-width: 400px;
-  min-height: 200px;
+  // min-height: 200px;
 
   .layout-box {
+    min-width: 800px;
+
     background: url("/home/biskyy/.config/ags/src/assets/ags_photo_fhd.png");
 
     background-position: center center;

@@ -6,12 +6,17 @@ const scss = `${App.configDir}/src/style.scss`;
 // target css file
 const css = `/tmp/ags/style.css`;
 
-Utils.readFileAsync("css").catch((err) => {
-  console.error(err);
-  Utils.exec(`sudo sass ${scss} ${css}`);
+Utils.readFileAsync(css).catch((err) => {
+  console.log("error: found no style.css file, creating one");
+  Utils.exec(`sass ${scss} ${css}`);
   App.resetCss();
   App.applyCss(css);
 });
+
+
+//Utils.exec(`sass ${scss} ${css}`);
+//App.resetCss();
+//App.applyCss(css);
 
 Utils.monitorFile(
   // directory that contains the scss files
@@ -20,7 +25,7 @@ Utils.monitorFile(
   // reload function
   function () {
     // compile, reset, apply
-    Utils.exec(`sudo sass ${scss} ${css}`);
+    Utils.exec(`sass ${scss} ${css}`);
     App.resetCss();
     App.applyCss(css);
   },
@@ -28,6 +33,6 @@ Utils.monitorFile(
 );
 
 App.config({
-  // style: css,
+  style: css,
   windows: [WindowHandler.spawnBar()],
 });

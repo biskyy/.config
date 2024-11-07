@@ -130,19 +130,19 @@ const PlayerRight = () =>
                 player.position
               )} / ${toTimestamp(player.length)})`;
           }),
-          Widget.Label({ className: "name" }).hook(Mpris, (widget) => {
-            if (MprisState.PlayerSelected.value < 0) {
-              widget.label = "No players";
-              return;
-            }
+          // Widget.Label({ className: "name" }).hook(Mpris, (widget) => {
+          //   if (MprisState.PlayerSelected.value < 0) {
+          //     widget.label = "No players";
+          //     return;
+          //   }
 
-            const player = Mpris.players[MprisState.PlayerSelected.value];
-            if (player.length < 0) widget.label = player.name;
-            else
-              widget.label = `${player.name} (${toTimestamp(
-                player.position
-              )} / ${toTimestamp(player.length)})`;
-          }),
+          //   const player = Mpris.players[MprisState.PlayerSelected.value];
+          //   if (player.length < 0) widget.label = player.name;
+          //   else
+          //     widget.label = `${player.name} (${toTimestamp(
+          //       player.position
+          //     )} / ${toTimestamp(player.length)})`;
+          // }),
         ],
       }),
       Widget.Box({
@@ -153,7 +153,9 @@ const PlayerRight = () =>
           Widget.Label({
             className: "title",
             halign: Gtk.Align.START,
+            // label: "Fetching title",
             setup: (widget) => {
+              widget.label = "Fetching title";
               widget.hook(Mpris, (widget) => {
                 if (
                   MprisState.PlayerSelected.value < 0 ||
@@ -175,6 +177,7 @@ const PlayerRight = () =>
             halign: Gtk.Align.START,
             setup: (widget) => {
               widget.hook(Mpris, (widget) => {
+                widget.label = "Fetching artist";
                 if (
                   MprisState.PlayerSelected.value < 0 ||
                   !Mpris.players[MprisState.PlayerSelected.value].track_artists

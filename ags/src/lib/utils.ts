@@ -1,3 +1,5 @@
+import GObject from "gi://GObject";
+
 export function symbolicStrength({ value, array, max = 100 }) {
   const interp = Math.floor((value / max) * array.length);
   return array[Math.min(interp, array.length - 1)];
@@ -34,5 +36,5 @@ export function toTimestamp(value: number) {
 export function truncate(value: string, limit: number) {
   if (value.length < limit) return value;
 
-  return `${value.slice(0, limit - 3)}...`;
+  return `${value.slice(0, limit - 3).trim()}...`;
 }

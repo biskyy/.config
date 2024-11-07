@@ -31,7 +31,7 @@ class windowHandler {
     return bar();
   };
 
-  toggleWindow = (window: string) => {
+  toggleWindow = (window: string, args = {}) => {
     const windowToBeSpawned = this.windowRegistry.get(window);
     if (!windowToBeSpawned) {
       console.log("Window not found");
@@ -56,14 +56,14 @@ class windowHandler {
     }
 
     // Add the new window and its overlay
-    App.addWindow(windowToBeSpawned());
-    // this.toggleOverlay(window);
+    App.addWindow(windowToBeSpawned(args));
+    this.toggleOverlay(window);
     this.currentVisibleWindow = window;
   };
 
   despawnWindow = (window: string) => {
     App.removeWindow(window);
-    // this.toggleOverlay(window);
+    this.toggleOverlay(window);
     if (this.currentVisibleWindow === window) {
       this.currentVisibleWindow = null;
     }
@@ -95,7 +95,7 @@ export const Overlay = (window: string, monitor = 0) =>
     child: Widget.EventBox({
       hexpand: true,
       vexpand: true,
-      css: "background-color: rgba(0, 0, 0, 0.2);",
+      css: "background-color: rgba(0, 0, 0, 0);",
       onPrimaryClick: () => WindowHandler.despawnWindow(window),
     }),
   });

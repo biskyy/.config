@@ -10,4 +10,4 @@ TODO:
 [ ] add alt-tab
 [ ] finish the ags bar
 [ ] add emoji selector
-
+[x] set hooks for acpid: ac turns on animations, shadows, blur, etc. for hyprland, bat turns them on

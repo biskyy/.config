@@ -23,3 +23,23 @@
 
 !.icons/
 !.icons/**
+
+!starship.toml
+
+!xfce4/
+!xfce4/**
+
+!systemd/
+!systemd/**
+
+!qt6ct/
+!qt6ct/**
+
+!nvim/
+!nvim/**
+
+!neofetch/
+!neofetch/**
+
+!alacritty
+!alacritty/**

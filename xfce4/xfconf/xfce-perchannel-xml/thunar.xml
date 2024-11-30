@@ -18,8 +18,8 @@
   <property name="last-details-view-visible-columns" type="string" value="THUNAR_COLUMN_DATE_MODIFIED,THUNAR_COLUMN_NAME,THUNAR_COLUMN_SIZE,THUNAR_COLUMN_TYPE"/>
   <property name="last-details-view-column-widths" type="string" value="50,50,127,50,50,90,50,50,656,50,50,76,50,156"/>
   <property name="misc-text-beside-icons" type="bool" value="false"/>
-  <property name="last-window-width" type="int" value="629"/>
-  <property name="last-window-height" type="int" value="673"/>
+  <property name="last-window-width" type="int" value="943"/>
+  <property name="last-window-height" type="int" value="1009"/>
   <property name="last-sort-column" type="string" value="THUNAR_COLUMN_TYPE"/>
   <property name="last-sort-order" type="string" value="GTK_SORT_ASCENDING"/>
   <property name="misc-confirm-close-multiple-tabs" type="bool" value="false"/>

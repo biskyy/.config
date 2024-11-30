@@ -1,13 +1,13 @@
 modmap:
-  - name: CapsLock to Esc/Alt
+  - name: CapsLock to Esc/Ctrl
     remap:
       CapsLock:
-        held: Alt_L
+        held: Ctrl_L
         alone: Esc
 keymap:
-  - name: Alt+IJKL to Arrow Keys
+  - name: Ctrl+IJKL to Arrow Keys
     remap:
-      Alt-k: Up
-      Alt-j: Down
-      Alt-h: Left
-      Alt-l: Right
+      C-k: Up
+      C-j: Down
+      C-h: Left
+      C-l: Right

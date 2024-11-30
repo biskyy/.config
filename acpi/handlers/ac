@@ -1,0 +1,7 @@
+#!/usr/bin/env zsh
+
+logger "Switched to ac mode"
+
+hyprctl --instance 0 keyword animations:enabled 1
+hyprctl --instance 0 keyword decoration:drop_shadow 1
+hyprctl --instance 0 keyword decoration:blur:enabled 1

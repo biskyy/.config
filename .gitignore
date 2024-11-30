@@ -3,6 +3,17 @@
 !README.md
 !.gitignore
 
+!acpi/
+!acpi/**
+
+!tlp.conf
+
+!hypr-packages
+
+!gtk-theme
+
+!packages
+
 !ags/
 !ags/**
 

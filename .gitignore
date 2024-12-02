@@ -3,6 +3,12 @@
 !README.md
 !.gitignore
 
+!zsh
+!zsh/**
+
+!zen-profile
+!zen-profile/**
+
 !acpi/
 !acpi/**
 

@@ -6,6 +6,9 @@
 !zsh
 !zsh/**
 
+!windows/
+!windows/**
+
 !zen-profile
 !zen-profile/**
 zen-profile/storage/

@@ -9,12 +9,6 @@
 !windows/
 !windows/**
 
-!zen-profile
-!zen-profile/**
-zen-profile/storage/
-zen-profile/chrome_debugger_profile/
-zen-profile/weave/logs
-
 !acpi/
 !acpi/**
 

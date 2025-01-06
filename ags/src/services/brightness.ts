@@ -1,84 +1,88 @@
-import Service from "resource:///com/github/Aylur/ags/service.js";
-import * as Utils from "resource:///com/github/Aylur/ags/utils.js";
+import {
+  exec,
+  execAsync,
+  GObject,
+  monitorFile,
+  property,
+  readFileAsync,
+  register,
+} from "astal";
 
-class BrightnessService extends Service {
-  // every subclass of GObject.Object has to register itself
-  static {
-    // takes three arguments
-    // the class itself
-    // an object defining the signals
-    // an object defining its properties
-    Service.register(
-      this,
-      {
-        // 'name-of-signal': [type as a string from GObject.TYPE_<type>],
-        "brightness-changed": ["float"],
-      },
-      {
-        // 'kebab-cased-name': [type as a string from GObject.TYPE_<type>, 'r' | 'w' | 'rw']
-        // 'r' means readable
-        // 'w' means writable
-        // guess what 'rw' means
-        "screen-brightness": ["float", "rw"],
-      }
-    );
+const get = (args: string): number => Number(exec(`brightnessctl ${args}`));
+const screen = exec(`bash -c "ls -w1 /sys/class/backlight | head -1"`);
+const kbd = exec(
+  `bash -c "ls -w1 /sys/class/leds | grep '::kbd_backlight$' | head -1"`,
+);
+
+@register({ GTypeName: "Brightness" })
+export default class Brightness extends GObject.Object {
+  static instance: Brightness;
+
+  static get_default(): Brightness {
+    if (!Brightness.instance) {
+      Brightness.instance = new Brightness();
+    }
+    return Brightness.instance;
   }
 
-  // this Service assumes only one device with backlight
-  #interface = Utils.exec("sh -c 'ls -w1 /sys/class/backlight | head -1'");
+  #kbdMax = kbd?.length ? get(`--device ${kbd} max`) : 0;
+  #kbd = kbd?.length ? get(`--device ${kbd} get`) : 0;
+  #screenMax = screen?.length ? get(`--device ${screen} max`) : 0;
+  #screen = screen?.length
+    ? (get(`--device ${screen} get`) / (get(`--device ${screen} max`) || 1)) *
+      100
+    : 0;
 
-  // # prefix means private in JS
-  #screenBrightness = 0;
-  #max = Number(Utils.exec("brightnessctl max"));
-
-  // the getter has to be in snake_case
-  get screen_brightness() {
-    return this.#screenBrightness;
+  @property(Number)
+  get kbd(): number {
+    return this.#kbd;
   }
 
-  // the setter has to be in snake_case too
-  set screen_brightness(percent) {
-    percent = Math.min(100, Math.max(0, percent));
+  @property(Number)
+  get screen(): number {
+    return this.#screen;
+  }
 
-    Utils.execAsync(`brightnessctl set ${percent}% -q`);
-    // the file monitor will handle the rest
+  set kbd(value: number) {
+    if (value < 0 || value > this.#kbdMax || !kbd?.length) return;
+
+    execAsync(`brightnessctl -d ${kbd} s ${value} -q`).then(() => {
+      this.#kbd = value;
+      this.notify("kbd");
+    });
+  }
+
+  set screen(percent: number) {
+    if (!screen?.length) return;
+
+    percent = Math.floor(percent);
+
+    if (percent < 0) percent = 0;
+
+    if (percent > 100) percent = 100;
+
+    execAsync(`brightnessctl set ${percent}% -d ${screen} -q`).then(() => {
+      this.#screen = percent;
+      this.notify("screen");
+    });
   }
 
   constructor() {
     super();
 
-    // setup monitor
-    const brightness = `/sys/class/backlight/${this.#interface}/brightness`;
-    Utils.monitorFile(brightness, () => this.#onChange());
+    const screenPath = `/sys/class/backlight/${screen}/brightness`;
+    const kbdPath = `/sys/class/leds/${kbd}/brightness`;
 
-    // initialize
-    this.#onChange();
-  }
+    monitorFile(screenPath, async (f) => {
+      const v = await readFileAsync(f);
+      this.#screen = (Number(v) / this.#screenMax) * 100;
+      this.notify("screen");
+    });
 
-  #onChange() {
-    this.#screenBrightness =
-      (Number(Utils.exec("brightnessctl get")) / this.#max) * 100;
-
-    // signals have to be explicity emitted
-    this.emit("changed"); // emits "changed"
-    this.notify("screen-brightness"); // emits "notify::screen-brightness"
-
-    // or use Service.changed(propName: string) which does the above two
-    // this.changed('screen-brightness');
-
-    // emit brightness-changed with the percent as a parameter
-    this.emit("brightness-changed", this.#screenBrightness);
-  }
-
-  // overwriting the connect method, let's you
-  // change the default event that widgets connect to
-  connect(event = "brightness-changed", callback) {
-    return super.connect(event, callback);
+    monitorFile(kbdPath, async (f) => {
+      const v = await readFileAsync(f);
+      this.#kbd = Number(v) / this.#kbdMax;
+      this.notify("kbd");
+    });
   }
 }
-
-// the singleton instance
-const service = new BrightnessService();
-
-// export to use in other modules
-export default service;

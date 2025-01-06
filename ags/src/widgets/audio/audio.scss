@@ -1,0 +1,101 @@
+@use "sass:string";
+@use "sass:color";
+
+@use "lib/animations.scss";
+@use "lib/colors.scss";
+
+.panel.audio {
+  // background-color: green;
+  $id: string.unique-id();
+
+  &.create>.content {
+    @include animations.flyin($id, "top", $userOffset: 55px);
+    @include animations.fade($id);
+
+    & {
+      animation: flyin-#{$id} 500ms,
+      fade-#{$id} 500ms;
+    }
+  }
+
+
+  .content {
+    // background-color: blue;
+    min-width: 550px;
+    min-height: 50px;
+    margin-top: 55px;
+    margin-right: 20px;
+
+    background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");
+    background-size: 200% 200%;
+    background-position: 25% 25%;
+
+    border-radius: 10px;
+    padding: 20px;
+    // padding-top: 55px;
+
+    .device {
+      border-radius: 5px;
+      padding: 8px 5px;
+
+      &.active {
+        background-color: color.adjust($color: colors.$background, $alpha: -0.5);
+        box-shadow: 0 0 5px colors.$background;
+      }
+
+      button {
+        border-radius: 5px;
+
+        &.icon {
+          min-width: 2rem;
+        }
+
+        &:not(.icon) {
+          padding: 0 0.5rem;
+        }
+
+        &.active {
+          background-color: color.adjust($color: colors.$background, $alpha: -0.25);
+          box-shadow: 0 0 5px colors.$background;
+
+          label {
+            color: colors.$accent;
+          }
+        }
+
+        &:hover,
+        .inactive:hover {
+          background-color: color.adjust($color: colors.$background, $alpha: -0.25);
+          box-shadow: 0 0 5px colors.$background;
+
+          &:not(.danger)>label {
+            color: colors.$accent;
+          }
+        }
+      }
+
+      .header {}
+
+      .slider>contents {
+        // background-color: color.adjust($color: colors.$accent, $alpha: -0.75);
+        background-color: color.adjust($color: color.mix(colors.$accent,
+              colors.$background),
+            $alpha: -0.5);
+        border-radius: 5px;
+
+        // slider {
+        // background-color: colors.$secondary;
+        // border-radius: 5px;
+        // }
+
+        highlight {
+          min-height: 9px;
+          background-color: colors.$accent;
+          border-radius: 5px;
+          min-width: 10px;
+        }
+      }
+    }
+
+  }
+}

@@ -1,86 +1,169 @@
-@use "../../lib/colors";
+@use "sass:color";
+@use "sass:string";
+@use "lib/animations.scss";
+@use "lib/colors.scss";
 
-.settings-column {
-  border-radius: 10px;
-  background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo_fhd.png");
-  background-size: 400% 400%;
-  background-position: left;
+.glance>.content {
+  min-width: 500px;
+  min-height: 50px;
+  padding-top: 55px;
+  // background-color: blue;
 
-  // min-width: 400px;
-  margin-right: 20px;
+  .pages {
+    // background-color: green;
+    // padding-bottom: 100px;
+    // margin: 20px 0px;
+    // min-height: 225px;
 
-  padding: 5px;
+    .page {
+      // background-color: magenta;
+      background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");
+      background-size: 200% 200%;
+      min-width: 400px;
 
-  .settings-button {
-    label {
-      font-size: 20px;
+      border-radius: 10px;
+      padding: 20px;
+      margin-left: 20px;
+      margin-bottom: 20px
     }
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.5);
-    }
+  }
 
-    padding: 8px;
-    border-radius: 5px;
+  .column {
+    // background-color: red;
+    background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");
+    background-size: 300% 300%;
+    background-position: 25% 25%;
+
+    border-radius: 10px;
+    margin-right: 20px;
+    padding: 10px;
+
+    button {
+      // background-color: magenta;
+
+      padding: 10px;
+      border-radius: 7px;
+
+      &:hover {
+        background-color: color.adjust($color: colors.$background, $alpha: -0.5);
+        box-shadow: 0 0 5px colors.$background;
+        // background-color: colors.$background;
+      }
+
+      &.active {
+        background-color: color.adjust($color: colors.$background, $alpha: -0.25);
+        box-shadow: 0 0 5px colors.$background;
+
+        label {
+          color: colors.$accent;
+        }
+      }
+
+      &.inactive:hover {
+        background-color: color.adjust($color: colors.$background, $alpha: -0.25);
+
+        label {
+          color: color.adjust($color: colors.$accent, $alpha: -0.4);
+        }
+      }
+
+      label {
+        // background-color: black;
+
+        font-size: 1.75rem;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+      }
+    }
   }
 }
 
-.glance-page {
-  border-radius: 10px;
-  background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo_fhd.png");
-  background-size: 200% 200%;
+.page.battery {
+  // background-color: green;
+  // $id: string.unique-id();
+  //
+  // @include animations.fade($id);
+  //
+  // & {
+  //   animation: fade-#{$id} 100ms;
+  // }
 
-  min-width: 400px;
-  margin-right: 10px;
-
-  padding: 15px;
-}
-
-.battery-and-power {
-  .power-profiles {
+  .power-modes {
     .segmented-slider {
       min-height: 20px;
-      background-color: rgba(0, 0, 0, 0.3);
-      border-radius: 5px;
-      .button {
-        border-radius: 5px;
+      border-radius: 7px;
+      background-color: color.adjust($color: colors.$background, $alpha: -0.5);
+
+      button {
+        border-radius: 7px;
+
+        &.active {
+          background-color: color.adjust($color: colors.$background, $alpha: -0.5);
+
+          label {
+            color: colors.$accent;
+          }
+        }
+
+        &:not(.active):hover {
+          background-color: color.adjust($color: colors.$background, $alpha: -0.5);
+
+          label {
+            color: color.adjust($color: colors.$accent, $alpha: -0.4);
+          }
+        }
       }
-      .active {
-        background-color: rgba(0, 0, 0, 0.4);
-      }
+
     }
   }
+
 
   .brightness {
     contents {
-      background-color: rgba(0, 0, 0, 0.5);
+      background-color: color.adjust($color: color.mix(colors.$accent,
+            colors.$background),
+          $alpha: -0.5);
       border-radius: 5px;
 
-      slider {
-        background-color: colors.$secondary;
-        border-radius: 5px;
-        min-height: 10px;
-      }
+      // slider {
+      // background-color: colors.$secondary;
+      // border-radius: 5px;
+      // }
 
       highlight {
-        background-color: colors.$secondary;
+        min-height: 9px;
+        background-color: colors.$accent;
         border-radius: 5px;
+        min-width: 10px;
       }
     }
   }
 }
 
-.internet {
-  .toggles {
-    background-color: rgba(0, 0, 0, 0.3);
-    min-height: 20px;
-    border-radius: 5px;
+.page.time {
 
-    .button {
-      border-radius: 5px;
+  // grid {
+  //   background-color: blue;
+  //   padding: 10px;
+  // }
+  .clock {
+    font-size: 3rem;
+  }
+
+  .date {
+    font-size: 1.25rem;
+  }
+
+  calendar {
+    color: colors.$text;
+
+    &:selected {
+      color: colors.$accent;
+      font-weight: bolder;
     }
 
-    .active {
-      background-color: rgba(0, 0, 0, 0.4);
+    &:indeterminate {
+      color: #888888;
     }
   }
 }

@@ -1,0 +1,36 @@
+@use "sass:string";
+@use "sass:list";
+@use "sass:meta";
+
+@mixin fade($id, $inout: "", $duration: 500ms) {
+  @keyframes fade-#{$id} {
+    0% {
+      opacity: 0;
+      // background-color: red;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+}
+
+@mixin flyin($id, $from, $offset: 80px, $push: 0.1, $duration: 500ms, $userOffset: 0px) {
+  @keyframes flyin-#{$id} {
+    0% {
+      margin-#{$from}: -$offset+$userOffset;
+    }
+
+    50% {
+      margin-#{$from}: 0px + $userOffset;
+    }
+
+    75% {
+      margin-#{$from}: ($offset * $push) + $userOffset;
+    }
+
+    100% {
+      margin-#{$from}: 0px + $userOffset;
+    }
+  }
+}

@@ -1,29 +1,76 @@
-@use "lib/animations";
-@use "lib/colors";
+// https://gitlab.gnome.org/GNOME/gtk/-/blob/gtk-3-24/gtk/theme/Adwaita/_colors-public.scss
+@use "sass:string";
 
-@use "widgets/bar/bar";
-@use "widgets/player/player";
-@use "widgets/media/media";
-@use "widgets/glance/glance";
+@use "lib/colors.scss";
+@use "lib/animations.scss";
+
+@use "widgets/bar/bar.scss";
+@use "widgets/powermenu/powermenu.scss";
+@use "widgets/glance/glance.scss";
+@use "widgets/audio/audio.scss";
+
+.panel.create>.content {
+  $id: string.unique-id();
+  @include animations.flyin($id, "top");
+  @include animations.fade($id);
+
+  & {
+    animation: flyin-#{$id} 500ms,
+    fade-#{$id} 500ms;
+  }
+}
+
+.panel.destroy>.content {
+  opacity: 0;
+}
+
+//  .content{
+//   // background-color: red;
+//   min-height: 50px;
+// }
 
 * {
   all: initial;
 
+  transition: all 250ms ease-in-out;
+
+  // label {
+  //   // margin: 1ex 0;
+  // }
+
   font: {
-    family: Liga SFMono Nerd Font, JetBrainsMono NF;
-    size: 11px;
+    family: Liga SFMono Nerd Font Heavy, JetBrainsMono Nerd Font Propo;
+    size: 0.9rem;
+    // size: 11px;
     weight: bold;
   }
 
-  // label {
-  //   color: colors.$text;
-  // }
-
-  // image {
-  //   color: colors.$text;
-  // }
+  letter-spacing: 0.05rem;
 }
 
 .icon {
-  font-family: JetBrainsMono NF;
+  // background-color: red;
+  font-family: JetBrainsMono Nerd Font Propo;
+  // font-size: 0.95rem;
+
+  label {
+    // background-color: red;
+    font-family: JetBrainsMono Nerd Font Propo;
+  }
+}
+
+.icon-pad-l {
+  padding-left: 0.2rem;
+}
+
+.icon-pad-r {
+  padding-right: 0.2rem;
+}
+
+.danger {
+  color: colors.$danger;
+
+  label {
+    color: colors.$danger;
+  }
 }

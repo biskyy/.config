@@ -1,0 +1,2457 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __typeError = (msg) => {
+  throw TypeError(msg);
+};
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __decorateClass = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;
+  for (var i = decorators.length - 1, decorator; i >= 0; i--)
+    if (decorator = decorators[i])
+      result = (kind ? decorator(target, key, result) : decorator(result)) || result;
+  if (kind && result) __defProp(target, key, result);
+  return result;
+};
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
+var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
+var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
+
+// ../../../../usr/share/astal/gjs/gtk3/index.ts
+import Astal7 from "gi://Astal?version=3.0";
+import Gtk4 from "gi://Gtk?version=3.0";
+import Gdk from "gi://Gdk?version=3.0";
+
+// ../../../../usr/share/astal/gjs/gtk3/astalify.ts
+import Astal4 from "gi://Astal?version=3.0";
+import Gtk from "gi://Gtk?version=3.0";
+import GObject from "gi://GObject";
+
+// ../../../../usr/share/astal/gjs/process.ts
+import Astal from "gi://AstalIO";
+var { Process } = Astal;
+function subprocess(argsOrCmd, onOut = print, onErr = printerr) {
+  const args = Array.isArray(argsOrCmd) || typeof argsOrCmd === "string";
+  const { cmd, err, out } = {
+    cmd: args ? argsOrCmd : argsOrCmd.cmd,
+    err: args ? onErr : argsOrCmd.err || onErr,
+    out: args ? onOut : argsOrCmd.out || onOut
+  };
+  const proc = Array.isArray(cmd) ? Astal.Process.subprocessv(cmd) : Astal.Process.subprocess(cmd);
+  proc.connect("stdout", (_, stdout) => out(stdout));
+  proc.connect("stderr", (_, stderr) => err(stderr));
+  return proc;
+}
+function exec(cmd) {
+  return Array.isArray(cmd) ? Astal.Process.execv(cmd) : Astal.Process.exec(cmd);
+}
+function execAsync(cmd) {
+  return new Promise((resolve, reject) => {
+    if (Array.isArray(cmd)) {
+      Astal.Process.exec_asyncv(cmd, (_, res) => {
+        try {
+          resolve(Astal.Process.exec_asyncv_finish(res));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    } else {
+      Astal.Process.exec_async(cmd, (_, res) => {
+        try {
+          resolve(Astal.Process.exec_finish(res));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+  });
+}
+
+// ../../../../usr/share/astal/gjs/variable.ts
+import Astal3 from "gi://AstalIO";
+
+// ../../../../usr/share/astal/gjs/binding.ts
+var snakeify = (str) => str.replace(/([a-z])([A-Z])/g, "$1_$2").replaceAll("-", "_").toLowerCase();
+var kebabify = (str) => str.replace(/([a-z])([A-Z])/g, "$1-$2").replaceAll("_", "-").toLowerCase();
+var Binding = class _Binding {
+  transformFn = (v) => v;
+  #emitter;
+  #prop;
+  static bind(emitter, prop) {
+    return new _Binding(emitter, prop);
+  }
+  constructor(emitter, prop) {
+    this.#emitter = emitter;
+    this.#prop = prop && kebabify(prop);
+  }
+  toString() {
+    return `Binding<${this.#emitter}${this.#prop ? `, "${this.#prop}"` : ""}>`;
+  }
+  as(fn) {
+    const bind2 = new _Binding(this.#emitter, this.#prop);
+    bind2.transformFn = (v) => fn(this.transformFn(v));
+    return bind2;
+  }
+  get() {
+    if (typeof this.#emitter.get === "function")
+      return this.transformFn(this.#emitter.get());
+    if (typeof this.#prop === "string") {
+      const getter = `get_${snakeify(this.#prop)}`;
+      if (typeof this.#emitter[getter] === "function")
+        return this.transformFn(this.#emitter[getter]());
+      return this.transformFn(this.#emitter[this.#prop]);
+    }
+    throw Error("can not get value of binding");
+  }
+  subscribe(callback) {
+    if (typeof this.#emitter.subscribe === "function") {
+      return this.#emitter.subscribe(() => {
+        callback(this.get());
+      });
+    } else if (typeof this.#emitter.connect === "function") {
+      const signal = `notify::${this.#prop}`;
+      const id = this.#emitter.connect(signal, () => {
+        callback(this.get());
+      });
+      return () => {
+        this.#emitter.disconnect(id);
+      };
+    }
+    throw Error(`${this.#emitter} is not bindable`);
+  }
+};
+var { bind } = Binding;
+
+// ../../../../usr/share/astal/gjs/time.ts
+import Astal2 from "gi://AstalIO";
+var { Time } = Astal2;
+function interval(interval2, callback) {
+  return Astal2.Time.interval(interval2, () => void callback?.());
+}
+function timeout(timeout3, callback) {
+  return Astal2.Time.timeout(timeout3, () => void callback?.());
+}
+
+// ../../../../usr/share/astal/gjs/variable.ts
+var VariableWrapper = class extends Function {
+  variable;
+  errHandler = console.error;
+  _value;
+  _poll;
+  _watch;
+  pollInterval = 1e3;
+  pollExec;
+  pollTransform;
+  pollFn;
+  watchTransform;
+  watchExec;
+  constructor(init) {
+    super();
+    this._value = init;
+    this.variable = new Astal3.VariableBase();
+    this.variable.connect("dropped", () => {
+      this.stopWatch();
+      this.stopPoll();
+    });
+    this.variable.connect("error", (_, err) => this.errHandler?.(err));
+    return new Proxy(this, {
+      apply: (target, _, args) => target._call(args[0])
+    });
+  }
+  _call(transform) {
+    const b = Binding.bind(this);
+    return transform ? b.as(transform) : b;
+  }
+  toString() {
+    return String(`Variable<${this.get()}>`);
+  }
+  get() {
+    return this._value;
+  }
+  set(value) {
+    if (value !== this._value) {
+      this._value = value;
+      this.variable.emit("changed");
+    }
+  }
+  startPoll() {
+    if (this._poll)
+      return;
+    if (this.pollFn) {
+      this._poll = interval(this.pollInterval, () => {
+        const v = this.pollFn(this.get());
+        if (v instanceof Promise) {
+          v.then((v2) => this.set(v2)).catch((err) => this.variable.emit("error", err));
+        } else {
+          this.set(v);
+        }
+      });
+    } else if (this.pollExec) {
+      this._poll = interval(this.pollInterval, () => {
+        execAsync(this.pollExec).then((v) => this.set(this.pollTransform(v, this.get()))).catch((err) => this.variable.emit("error", err));
+      });
+    }
+  }
+  startWatch() {
+    if (this._watch)
+      return;
+    this._watch = subprocess({
+      cmd: this.watchExec,
+      out: (out) => this.set(this.watchTransform(out, this.get())),
+      err: (err) => this.variable.emit("error", err)
+    });
+  }
+  stopPoll() {
+    this._poll?.cancel();
+    delete this._poll;
+  }
+  stopWatch() {
+    this._watch?.kill();
+    delete this._watch;
+  }
+  isPolling() {
+    return !!this._poll;
+  }
+  isWatching() {
+    return !!this._watch;
+  }
+  drop() {
+    this.variable.emit("dropped");
+  }
+  onDropped(callback) {
+    this.variable.connect("dropped", callback);
+    return this;
+  }
+  onError(callback) {
+    delete this.errHandler;
+    this.variable.connect("error", (_, err) => callback(err));
+    return this;
+  }
+  subscribe(callback) {
+    const id = this.variable.connect("changed", () => {
+      callback(this.get());
+    });
+    return () => this.variable.disconnect(id);
+  }
+  poll(interval2, exec2, transform = (out) => out) {
+    this.stopPoll();
+    this.pollInterval = interval2;
+    this.pollTransform = transform;
+    if (typeof exec2 === "function") {
+      this.pollFn = exec2;
+      delete this.pollExec;
+    } else {
+      this.pollExec = exec2;
+      delete this.pollFn;
+    }
+    this.startPoll();
+    return this;
+  }
+  watch(exec2, transform = (out) => out) {
+    this.stopWatch();
+    this.watchExec = exec2;
+    this.watchTransform = transform;
+    this.startWatch();
+    return this;
+  }
+  observe(objs, sigOrFn, callback) {
+    const f = typeof sigOrFn === "function" ? sigOrFn : callback ?? (() => this.get());
+    const set = (obj, ...args) => this.set(f(obj, ...args));
+    if (Array.isArray(objs)) {
+      for (const obj of objs) {
+        const [o, s] = obj;
+        const id = o.connect(s, set);
+        this.onDropped(() => o.disconnect(id));
+      }
+    } else {
+      if (typeof sigOrFn === "string") {
+        const id = objs.connect(sigOrFn, set);
+        this.onDropped(() => objs.disconnect(id));
+      }
+    }
+    return this;
+  }
+  static derive(deps, fn = (...args) => args) {
+    const update = () => fn(...deps.map((d) => d.get()));
+    const derived = new Variable(update());
+    const unsubs = deps.map((dep) => dep.subscribe(() => derived.set(update())));
+    derived.onDropped(() => unsubs.map((unsub) => unsub()));
+    return derived;
+  }
+};
+var Variable = new Proxy(VariableWrapper, {
+  apply: (_t, _a, args) => new VariableWrapper(args[0])
+});
+var variable_default = Variable;
+
+// ../../../../usr/share/astal/gjs/gtk3/astalify.ts
+function mergeBindings(array) {
+  function getValues(...args) {
+    let i = 0;
+    return array.map(
+      (value) => value instanceof Binding ? args[i++] : value
+    );
+  }
+  const bindings = array.filter((i) => i instanceof Binding);
+  if (bindings.length === 0)
+    return array;
+  if (bindings.length === 1)
+    return bindings[0].as(getValues);
+  return variable_default.derive(bindings, getValues)();
+}
+function setProp(obj, prop, value) {
+  try {
+    const setter = `set_${snakeify(prop)}`;
+    if (typeof obj[setter] === "function")
+      return obj[setter](value);
+    return obj[prop] = value;
+  } catch (error) {
+    console.error(`could not set property "${prop}" on ${obj}:`, error);
+  }
+}
+function astalify(cls, clsName = cls.name) {
+  class Widget8 extends cls {
+    get css() {
+      return Astal4.widget_get_css(this);
+    }
+    set css(css) {
+      Astal4.widget_set_css(this, css);
+    }
+    get_css() {
+      return this.css;
+    }
+    set_css(css) {
+      this.css = css;
+    }
+    get className() {
+      return Astal4.widget_get_class_names(this).join(" ");
+    }
+    set className(className) {
+      Astal4.widget_set_class_names(this, className.split(/\s+/));
+    }
+    get_class_name() {
+      return this.className;
+    }
+    set_class_name(className) {
+      this.className = className;
+    }
+    get cursor() {
+      return Astal4.widget_get_cursor(this);
+    }
+    set cursor(cursor) {
+      Astal4.widget_set_cursor(this, cursor);
+    }
+    get_cursor() {
+      return this.cursor;
+    }
+    set_cursor(cursor) {
+      this.cursor = cursor;
+    }
+    get clickThrough() {
+      return Astal4.widget_get_click_through(this);
+    }
+    set clickThrough(clickThrough) {
+      Astal4.widget_set_click_through(this, clickThrough);
+    }
+    get_click_through() {
+      return this.clickThrough;
+    }
+    set_click_through(clickThrough) {
+      this.clickThrough = clickThrough;
+    }
+    get noImplicitDestroy() {
+      return this.__no_implicit_destroy;
+    }
+    set noImplicitDestroy(value) {
+      this.__no_implicit_destroy = value;
+    }
+    set actionGroup([prefix, group]) {
+      this.insert_action_group(prefix, group);
+    }
+    set_action_group(actionGroup) {
+      this.actionGroup = actionGroup;
+    }
+    _setChildren(children) {
+      children = children.flat(Infinity).map((ch) => ch instanceof Gtk.Widget ? ch : new Gtk.Label({ visible: true, label: String(ch) }));
+      if (this instanceof Gtk.Bin) {
+        const ch = this.get_child();
+        if (ch)
+          this.remove(ch);
+        if (ch && !children.includes(ch) && !this.noImplicitDestroy)
+          ch?.destroy();
+      } else if (this instanceof Gtk.Container) {
+        for (const ch of this.get_children()) {
+          this.remove(ch);
+          if (!children.includes(ch) && !this.noImplicitDestroy)
+            ch?.destroy();
+        }
+      }
+      if (this instanceof Astal4.Box) {
+        this.set_children(children);
+      } else if (this instanceof Astal4.Stack) {
+        this.set_children(children);
+      } else if (this instanceof Astal4.CenterBox) {
+        this.startWidget = children[0];
+        this.centerWidget = children[1];
+        this.endWidget = children[2];
+      } else if (this instanceof Astal4.Overlay) {
+        const [child, ...overlays] = children;
+        this.set_child(child);
+        this.set_overlays(overlays);
+      } else if (this instanceof Gtk.Container) {
+        for (const ch of children)
+          this.add(ch);
+      } else {
+        throw Error(`can not add children to ${this.constructor.name}, it is not a container widget`);
+      }
+    }
+    toggleClassName(cn, cond = true) {
+      Astal4.widget_toggle_class_name(this, cn, cond);
+    }
+    hook(object, signalOrCallback, callback) {
+      if (typeof object.connect === "function" && callback) {
+        const id = object.connect(signalOrCallback, (_, ...args) => {
+          callback(this, ...args);
+        });
+        this.connect("destroy", () => {
+          object.disconnect(id);
+        });
+      } else if (typeof object.subscribe === "function" && typeof signalOrCallback === "function") {
+        const unsub = object.subscribe((...args) => {
+          signalOrCallback(this, ...args);
+        });
+        this.connect("destroy", unsub);
+      }
+      return this;
+    }
+    constructor(...params) {
+      super();
+      const [config] = params;
+      const { setup, child, children = [], ...props } = config;
+      props.visible ??= true;
+      for (const [key, value] of Object.entries(props)) {
+        if (value === void 0) {
+          delete props[key];
+        }
+      }
+      if (child)
+        children.unshift(child);
+      const bindings = Object.keys(props).reduce((acc, prop) => {
+        if (props[prop] instanceof Binding) {
+          const binding = props[prop];
+          delete props[prop];
+          return [...acc, [prop, binding]];
+        }
+        return acc;
+      }, []);
+      const onHandlers = Object.keys(props).reduce((acc, key) => {
+        if (key.startsWith("on")) {
+          const sig = kebabify(key).split("-").slice(1).join("-");
+          const handler = props[key];
+          delete props[key];
+          return [...acc, [sig, handler]];
+        }
+        return acc;
+      }, []);
+      const mergedChildren = mergeBindings(children.flat(Infinity));
+      if (mergedChildren instanceof Binding) {
+        this._setChildren(mergedChildren.get());
+        this.connect("destroy", mergedChildren.subscribe((v) => {
+          this._setChildren(v);
+        }));
+      } else {
+        if (mergedChildren.length > 0) {
+          this._setChildren(mergedChildren);
+        }
+      }
+      for (const [signal, callback] of onHandlers) {
+        if (typeof callback === "function") {
+          this.connect(signal, callback);
+        } else {
+          this.connect(signal, () => execAsync(callback).then(print).catch(console.error));
+        }
+      }
+      for (const [prop, binding] of bindings) {
+        if (prop === "child" || prop === "children") {
+          this.connect("destroy", binding.subscribe((v) => {
+            this._setChildren(v);
+          }));
+        }
+        this.connect("destroy", binding.subscribe((v) => {
+          setProp(this, prop, v);
+        }));
+        setProp(this, prop, binding.get());
+      }
+      Object.assign(this, props);
+      setup?.(this);
+    }
+  }
+  GObject.registerClass({
+    GTypeName: `Astal_${clsName}`,
+    Properties: {
+      "class-name": GObject.ParamSpec.string(
+        "class-name",
+        "",
+        "",
+        GObject.ParamFlags.READWRITE,
+        ""
+      ),
+      "css": GObject.ParamSpec.string(
+        "css",
+        "",
+        "",
+        GObject.ParamFlags.READWRITE,
+        ""
+      ),
+      "cursor": GObject.ParamSpec.string(
+        "cursor",
+        "",
+        "",
+        GObject.ParamFlags.READWRITE,
+        "default"
+      ),
+      "click-through": GObject.ParamSpec.boolean(
+        "click-through",
+        "",
+        "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
+      "no-implicit-destroy": GObject.ParamSpec.boolean(
+        "no-implicit-destroy",
+        "",
+        "",
+        GObject.ParamFlags.READWRITE,
+        false
+      )
+    }
+  }, Widget8);
+  return Widget8;
+}
+
+// ../../../../usr/share/astal/gjs/gtk3/app.ts
+import Gtk2 from "gi://Gtk?version=3.0";
+import Astal5 from "gi://Astal?version=3.0";
+
+// ../../../../usr/share/astal/gjs/overrides.ts
+var snakeify2 = (str) => str.replace(/([a-z])([A-Z])/g, "$1_$2").replaceAll("-", "_").toLowerCase();
+async function suppress(mod, patch2) {
+  return mod.then((m) => patch2(m.default)).catch(() => void 0);
+}
+function patch(proto, prop) {
+  Object.defineProperty(proto, prop, {
+    get() {
+      return this[`get_${snakeify2(prop)}`]();
+    }
+  });
+}
+await suppress(import("gi://AstalApps"), ({ Apps, Application }) => {
+  patch(Apps.prototype, "list");
+  patch(Application.prototype, "keywords");
+  patch(Application.prototype, "categories");
+});
+await suppress(import("gi://AstalBattery"), ({ UPower }) => {
+  patch(UPower.prototype, "devices");
+});
+await suppress(import("gi://AstalBluetooth"), ({ Adapter, Bluetooth, Device }) => {
+  patch(Adapter.prototype, "uuids");
+  patch(Bluetooth.prototype, "adapters");
+  patch(Bluetooth.prototype, "devices");
+  patch(Device.prototype, "uuids");
+});
+await suppress(import("gi://AstalHyprland"), ({ Hyprland, Monitor, Workspace }) => {
+  patch(Hyprland.prototype, "monitors");
+  patch(Hyprland.prototype, "workspaces");
+  patch(Hyprland.prototype, "clients");
+  patch(Monitor.prototype, "availableModes");
+  patch(Monitor.prototype, "available_modes");
+  patch(Workspace.prototype, "clients");
+});
+await suppress(import("gi://AstalMpris"), ({ Mpris, Player }) => {
+  patch(Mpris.prototype, "players");
+  patch(Player.prototype, "supported_uri_schemes");
+  patch(Player.prototype, "supportedUriSchemes");
+  patch(Player.prototype, "supported_mime_types");
+  patch(Player.prototype, "supportedMimeTypes");
+  patch(Player.prototype, "comments");
+});
+await suppress(import("gi://AstalNetwork"), ({ Wifi }) => {
+  patch(Wifi.prototype, "access_points");
+  patch(Wifi.prototype, "accessPoints");
+});
+await suppress(import("gi://AstalNotifd"), ({ Notifd, Notification }) => {
+  patch(Notifd.prototype, "notifications");
+  patch(Notification.prototype, "actions");
+});
+await suppress(import("gi://AstalPowerProfiles"), ({ PowerProfiles }) => {
+  patch(PowerProfiles.prototype, "actions");
+});
+await suppress(import("gi://AstalWp"), ({ Wp, Audio: Audio2, Video }) => {
+  patch(Wp.prototype, "endpoints");
+  patch(Wp.prototype, "devices");
+  patch(Audio2.prototype, "streams");
+  patch(Audio2.prototype, "recorders");
+  patch(Audio2.prototype, "microphones");
+  patch(Audio2.prototype, "speakers");
+  patch(Audio2.prototype, "devices");
+  patch(Video.prototype, "streams");
+  patch(Video.prototype, "recorders");
+  patch(Video.prototype, "sinks");
+  patch(Video.prototype, "sources");
+  patch(Video.prototype, "devices");
+});
+
+// ../../../../usr/share/astal/gjs/_app.ts
+import { setConsoleLogDomain } from "console";
+import { exit, programArgs } from "system";
+import IO from "gi://AstalIO";
+import GObject2 from "gi://GObject";
+function mkApp(App) {
+  return new class AstalJS extends App {
+    static {
+      GObject2.registerClass({ GTypeName: "AstalJS" }, this);
+    }
+    eval(body) {
+      return new Promise((res, rej) => {
+        try {
+          const fn = Function(`return (async function() {
+                        ${body.includes(";") ? body : `return ${body};`}
+                    })`);
+          fn()().then(res).catch(rej);
+        } catch (error) {
+          rej(error);
+        }
+      });
+    }
+    requestHandler;
+    vfunc_request(msg, conn) {
+      if (typeof this.requestHandler === "function") {
+        this.requestHandler(msg, (response) => {
+          IO.write_sock(
+            conn,
+            String(response),
+            (_, res) => IO.write_sock_finish(res)
+          );
+        });
+      } else {
+        super.vfunc_request(msg, conn);
+      }
+    }
+    apply_css(style, reset = false) {
+      super.apply_css(style, reset);
+    }
+    quit(code) {
+      super.quit();
+      exit(code ?? 0);
+    }
+    start({ requestHandler, css, hold, main, client, icons, ...cfg } = {}) {
+      const app = this;
+      client ??= () => {
+        print(`Astal instance "${app.instanceName}" already running`);
+        exit(1);
+      };
+      Object.assign(this, cfg);
+      setConsoleLogDomain(app.instanceName);
+      this.requestHandler = requestHandler;
+      app.connect("activate", () => {
+        main?.(...programArgs);
+      });
+      try {
+        app.acquire_socket();
+      } catch (error) {
+        return client((msg) => IO.send_message(app.instanceName, msg), ...programArgs);
+      }
+      if (css)
+        this.apply_css(css, false);
+      if (icons)
+        app.add_icons(icons);
+      hold ??= true;
+      if (hold)
+        app.hold();
+      app.runAsync([]);
+    }
+  }();
+}
+
+// ../../../../usr/share/astal/gjs/gtk3/app.ts
+Gtk2.init(null);
+var app_default = mkApp(Astal5.Application);
+
+// ../../../../usr/share/astal/gjs/gtk3/widget.ts
+import Astal6 from "gi://Astal?version=3.0";
+import Gtk3 from "gi://Gtk?version=3.0";
+import GObject3 from "gi://GObject";
+Object.defineProperty(Astal6.Box.prototype, "children", {
+  get() {
+    return this.get_children();
+  },
+  set(v) {
+    this.set_children(v);
+  }
+});
+var Box = class extends astalify(Astal6.Box) {
+  static {
+    GObject3.registerClass({ GTypeName: "Box" }, this);
+  }
+  constructor(props, ...children) {
+    super({ children, ...props });
+  }
+};
+var Button = class extends astalify(Astal6.Button) {
+  static {
+    GObject3.registerClass({ GTypeName: "Button" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+var CenterBox = class extends astalify(Astal6.CenterBox) {
+  static {
+    GObject3.registerClass({ GTypeName: "CenterBox" }, this);
+  }
+  constructor(props, ...children) {
+    super({ children, ...props });
+  }
+};
+var CircularProgress = class extends astalify(Astal6.CircularProgress) {
+  static {
+    GObject3.registerClass({ GTypeName: "CircularProgress" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+var DrawingArea = class extends astalify(Gtk3.DrawingArea) {
+  static {
+    GObject3.registerClass({ GTypeName: "DrawingArea" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var Entry = class extends astalify(Gtk3.Entry) {
+  static {
+    GObject3.registerClass({ GTypeName: "Entry" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var EventBox = class extends astalify(Astal6.EventBox) {
+  static {
+    GObject3.registerClass({ GTypeName: "EventBox" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+var Icon = class extends astalify(Astal6.Icon) {
+  static {
+    GObject3.registerClass({ GTypeName: "Icon" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var Label = class extends astalify(Astal6.Label) {
+  static {
+    GObject3.registerClass({ GTypeName: "Label" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var LevelBar = class extends astalify(Astal6.LevelBar) {
+  static {
+    GObject3.registerClass({ GTypeName: "LevelBar" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var MenuButton = class extends astalify(Gtk3.MenuButton) {
+  static {
+    GObject3.registerClass({ GTypeName: "MenuButton" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+Object.defineProperty(Astal6.Overlay.prototype, "overlays", {
+  get() {
+    return this.get_overlays();
+  },
+  set(v) {
+    this.set_overlays(v);
+  }
+});
+var Overlay = class extends astalify(Astal6.Overlay) {
+  static {
+    GObject3.registerClass({ GTypeName: "Overlay" }, this);
+  }
+  constructor(props, ...children) {
+    super({ children, ...props });
+  }
+};
+var Revealer = class extends astalify(Gtk3.Revealer) {
+  static {
+    GObject3.registerClass({ GTypeName: "Revealer" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+var Scrollable = class extends astalify(Astal6.Scrollable) {
+  static {
+    GObject3.registerClass({ GTypeName: "Scrollable" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+var Slider = class extends astalify(Astal6.Slider) {
+  static {
+    GObject3.registerClass({ GTypeName: "Slider" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var Stack = class extends astalify(Astal6.Stack) {
+  static {
+    GObject3.registerClass({ GTypeName: "Stack" }, this);
+  }
+  constructor(props, ...children) {
+    super({ children, ...props });
+  }
+};
+var Switch = class extends astalify(Gtk3.Switch) {
+  static {
+    GObject3.registerClass({ GTypeName: "Switch" }, this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+var Window = class extends astalify(Astal6.Window) {
+  static {
+    GObject3.registerClass({ GTypeName: "Window" }, this);
+  }
+  constructor(props, child) {
+    super({ child, ...props });
+  }
+};
+
+// sass:/home/biskyy/.config/ags/src/style.scss
+var style_default = '.bar {\n  background-color: transparent;\n  padding: 1px;\n}\n.bar .launcher .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .launcher .module button {\n  padding: 1px 0;\n}\n.bar .launcher:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .launcher:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .workspaces .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .workspaces .module button {\n  padding: 1px 0;\n}\n.bar .workspaces:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .workspaces:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .sysinfo .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .sysinfo .module button {\n  padding: 1px 0;\n}\n.bar .sysinfo:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .sysinfo:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .systray .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .systray .module button {\n  padding: 1px 0;\n}\n.bar .systray:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .systray:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .player .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .player .module button {\n  padding: 1px 0;\n}\n.bar .player:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .player:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .info .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .info .module button {\n  padding: 1px 0;\n}\n.bar .info:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .info:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .audio .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .audio .module button {\n  padding: 1px 0;\n}\n.bar .audio:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .audio:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .power .module {\n  border-radius: 7px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_bar_4k4_dimmer.png");\n  background-blend-mode: overlay;\n  background-size: 1920px 108px;\n  background-repeat: no-repeat;\n  margin: 10px 8px;\n  padding: 4px 14px;\n  box-shadow: 0px 0px 5px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.bar .power .module button {\n  padding: 1px 0;\n}\n.bar .power:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .power:not(.workspaces):not(.systray):not(.info):not(.power):not(.audio):hover .module label {\n  color: #5bd6a5;\n}\n.bar .launcher .module {\n  background-position: 5%;\n}\n.bar .workspaces .module {\n  background-position: 10%;\n}\n.bar .workspaces .module > button {\n  min-width: 26px;\n  border-radius: 20%;\n}\n.bar .workspaces .module > .active {\n  background-color: #0a0f0d;\n  box-shadow: 0px 0px 3px #0a0f0d;\n}\n.bar .workspaces .module > .active label {\n  color: #5bd6a5;\n}\n.bar .workspaces .module > .inactive {\n  background-color: transparent;\n  box-shadow: none;\n}\n.bar .workspaces .module > .inactive label {\n  color: #e8f8f2;\n}\n.bar .workspaces .module > .inactive:hover {\n  background-color: #0a0f0d;\n  box-shadow: 0px 0px 3px #0a0f0d;\n}\n.bar .workspaces .module > .inactive:hover label {\n  color: rgba(91, 214, 165, 0.6);\n}\n.bar .sysinfo .module {\n  background-position: 25%;\n}\n.bar .systray .module {\n  background-position: 30%;\n}\n.bar .systray button {\n  min-width: 26px;\n  border-radius: 5px;\n}\n.bar .systray button:hover {\n  background-color: #0a0f0d;\n  box-shadow: 0px 0px 3px #0a0f0d;\n}\n.bar .player .module {\n  background-position: center;\n}\n.bar .audio .module {\n  background-position: 88%;\n}\n.bar .audio .module button {\n  padding: 0px 6px;\n  border-radius: 5px;\n}\n.bar .audio .module button:hover {\n  background-color: #0a0f0d;\n  box-shadow: 0 0 9px #0a0f0d;\n}\n.bar .audio .module button:hover label:not(.danger) {\n  color: #5bd6a5;\n}\n.bar .info .module {\n  background-position: 90%;\n}\n.bar .info .module button {\n  padding: 0px 6px;\n  border-radius: 5px;\n}\n.bar .info .module button:hover {\n  background-color: #0a0f0d;\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.bar .info .module button:hover label {\n  color: #5bd6a5;\n}\n.bar .info .module button.active {\n  background-color: #0a0f0d;\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.bar .info .module button.active label {\n  color: #5bd6a5;\n}\n.bar .info .module button.inactive:hover label {\n  color: rgba(91, 214, 165, 0.6);\n}\n.bar .power.active .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .power.active .module label {\n  color: #5bd6a5;\n}\n.bar .power.inactive:hover .module {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.bar .power.inactive:hover .module label {\n  color: #5bd6a5;\n}\n.bar .power .module {\n  background-position: 95%;\n}\n\nmenu {\n  background: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");\n  background-size: 250% 250%;\n  background-position: left;\n  padding: 10px;\n  border-radius: 7px;\n}\nmenu menuitem {\n  margin: 2px 0px;\n  border-radius: 5px;\n  background-color: transparent;\n}\nmenu menuitem:hover {\n  background-color: #0a0f0d;\n}\nmenu menuitem:hover > label {\n  color: #5bd6a5;\n}\nmenu menuitem label {\n  padding: 2px 8px;\n}\n\nmenubar menuitem {\n  background-color: blue;\n  padding: 4px;\n}\n\n@keyframes flyin-u5x80eh {\n  0% {\n    margin-right: -160px;\n  }\n  50% {\n    margin-right: 0px;\n  }\n  75% {\n    margin-right: 16px;\n  }\n  100% {\n    margin-right: 0px;\n  }\n}\n@keyframes fade-u5x80eh {\n  0% {\n    opacity: 0;\n  }\n  100% {\n    opacity: 1;\n  }\n}\n.powermenu.panel.create > .content {\n  animation: flyin-u5x80eh 500ms, fade-u5x80eh 500ms;\n}\n.powermenu .content {\n  padding: 1px;\n  min-width: 300px;\n}\n.powermenu .content .power-button .power-icon {\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo_360p.jpg");\n  background-size: 250% 250%;\n  background-position: 25% 25%;\n  background-blend-mode: overlay;\n  padding: 25px;\n  margin: 20px;\n  border-radius: 10px;\n  box-shadow: 0px 0px 10px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n.powermenu .content .power-button .power-icon label {\n  font-size: 3rem;\n  min-width: 4rem;\n  min-height: 4rem;\n}\n.powermenu .content .power-button .power-icon:hover {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.powermenu .content .power-button .power-icon:hover label {\n  color: #5bd6a5;\n}\n.powermenu .content .power-button .power-icon:active label {\n  color: #e11d48;\n}\n.powermenu .content .power-button .selected label {\n  color: #e11d48;\n}\n.powermenu .content .power-button .selected:hover label, .powermenu .content .power-button .selected:active label {\n  color: #e11d48;\n}\n.powermenu .content .power-button:hover .transition-text {\n  color: #e8f8f2;\n  text-shadow: 0px 0px 10px #0a0f0d, 0px 0px 5px #0a0f0d;\n}\n@keyframes flyin-u5x80eh {\n  0% {\n    margin-right: -80px;\n  }\n  50% {\n    margin-right: 0px;\n  }\n  75% {\n    margin-right: 8px;\n  }\n  100% {\n    margin-right: 0px;\n  }\n}\n.powermenu .content .power-button:hover .transition-text {\n  animation: flyin-u5x80eh 500ms;\n}\n.powermenu .content .power-button .transition-text {\n  color: transparent;\n  font-size: 20px;\n  min-width: 150px;\n}\n\n.glance > .content {\n  min-width: 500px;\n  min-height: 50px;\n  padding-top: 55px;\n}\n.glance > .content .pages .page {\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");\n  background-size: 200% 200%;\n  min-width: 400px;\n  border-radius: 10px;\n  padding: 20px;\n  margin-left: 20px;\n  margin-bottom: 20px;\n}\n.glance > .content .column {\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");\n  background-size: 300% 300%;\n  background-position: 25% 25%;\n  border-radius: 10px;\n  margin-right: 20px;\n  padding: 10px;\n}\n.glance > .content .column button {\n  padding: 10px;\n  border-radius: 7px;\n}\n.glance > .content .column button:hover {\n  background-color: rgba(10, 15, 13, 0.5);\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.glance > .content .column button.active {\n  background-color: rgba(10, 15, 13, 0.75);\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.glance > .content .column button.active label {\n  color: #5bd6a5;\n}\n.glance > .content .column button.inactive:hover {\n  background-color: rgba(10, 15, 13, 0.75);\n}\n.glance > .content .column button.inactive:hover label {\n  color: rgba(91, 214, 165, 0.6);\n}\n.glance > .content .column button label {\n  font-size: 1.75rem;\n  min-width: 2.25rem;\n  min-height: 2.25rem;\n}\n\n.page.battery .power-modes .segmented-slider {\n  min-height: 20px;\n  border-radius: 7px;\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.page.battery .power-modes .segmented-slider button {\n  border-radius: 7px;\n}\n.page.battery .power-modes .segmented-slider button.active {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.page.battery .power-modes .segmented-slider button.active label {\n  color: #5bd6a5;\n}\n.page.battery .power-modes .segmented-slider button:not(.active):hover {\n  background-color: rgba(10, 15, 13, 0.5);\n}\n.page.battery .power-modes .segmented-slider button:not(.active):hover label {\n  color: rgba(91, 214, 165, 0.6);\n}\n.page.battery .brightness contents {\n  background-color: rgba(50.5, 114.5, 89, 0.5);\n  border-radius: 5px;\n}\n.page.battery .brightness contents highlight {\n  min-height: 9px;\n  background-color: #5bd6a5;\n  border-radius: 5px;\n  min-width: 10px;\n}\n\n.page.time .clock {\n  font-size: 3rem;\n}\n.page.time .date {\n  font-size: 1.25rem;\n}\n.page.time calendar {\n  color: #e8f8f2;\n}\n.page.time calendar:selected {\n  color: #5bd6a5;\n  font-weight: bolder;\n}\n.page.time calendar:indeterminate {\n  color: #888888;\n}\n\n@keyframes flyin-u5x80f7 {\n  0% {\n    margin-top: -25px;\n  }\n  50% {\n    margin-top: 55px;\n  }\n  75% {\n    margin-top: 63px;\n  }\n  100% {\n    margin-top: 55px;\n  }\n}\n@keyframes fade-u5x80f7 {\n  0% {\n    opacity: 0;\n  }\n  100% {\n    opacity: 1;\n  }\n}\n.panel.audio.create > .content {\n  animation: flyin-u5x80f7 500ms, fade-u5x80f7 500ms;\n}\n.panel.audio .content {\n  min-width: 550px;\n  min-height: 50px;\n  margin-top: 55px;\n  margin-right: 20px;\n  background-image: url("/home/biskyy/.config/ags/src/assets/ags_photo.png");\n  background-size: 200% 200%;\n  background-position: 25% 25%;\n  border-radius: 10px;\n  padding: 20px;\n}\n.panel.audio .content .device {\n  border-radius: 5px;\n  padding: 8px 5px;\n}\n.panel.audio .content .device.active {\n  background-color: rgba(10, 15, 13, 0.5);\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.panel.audio .content .device button {\n  border-radius: 5px;\n}\n.panel.audio .content .device button.icon {\n  min-width: 2rem;\n}\n.panel.audio .content .device button:not(.icon) {\n  padding: 0 0.5rem;\n}\n.panel.audio .content .device button.active {\n  background-color: rgba(10, 15, 13, 0.75);\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.panel.audio .content .device button.active label {\n  color: #5bd6a5;\n}\n.panel.audio .content .device button:hover,\n.panel.audio .content .device button .inactive:hover {\n  background-color: rgba(10, 15, 13, 0.75);\n  box-shadow: 0 0 5px #0a0f0d;\n}\n.panel.audio .content .device button:hover:not(.danger) > label,\n.panel.audio .content .device button .inactive:hover:not(.danger) > label {\n  color: #5bd6a5;\n}\n.panel.audio .content .device .slider > contents {\n  background-color: rgba(50.5, 114.5, 89, 0.5);\n  border-radius: 5px;\n}\n.panel.audio .content .device .slider > contents highlight {\n  min-height: 9px;\n  background-color: #5bd6a5;\n  border-radius: 5px;\n  min-width: 10px;\n}\n\n@keyframes flyin-u5x80g5 {\n  0% {\n    margin-top: -80px;\n  }\n  50% {\n    margin-top: 0px;\n  }\n  75% {\n    margin-top: 8px;\n  }\n  100% {\n    margin-top: 0px;\n  }\n}\n@keyframes fade-u5x80g5 {\n  0% {\n    opacity: 0;\n  }\n  100% {\n    opacity: 1;\n  }\n}\n.panel.create > .content {\n  animation: flyin-u5x80g5 500ms, fade-u5x80g5 500ms;\n}\n\n.panel.destroy > .content {\n  opacity: 0;\n}\n\n* {\n  all: initial;\n  transition: all 250ms ease-in-out;\n  font-family: Liga SFMono Nerd Font Heavy, JetBrainsMono Nerd Font Propo;\n  font-size: 0.9rem;\n  font-weight: bold;\n  letter-spacing: 0.05rem;\n}\n\n.icon {\n  font-family: JetBrainsMono Nerd Font Propo;\n}\n.icon label {\n  font-family: JetBrainsMono Nerd Font Propo;\n}\n\n.icon-pad-l {\n  padding-left: 0.2rem;\n}\n\n.icon-pad-r {\n  padding-right: 0.2rem;\n}\n\n.danger {\n  color: #e11d48;\n}\n.danger label {\n  color: #e11d48;\n}';
+
+// ../../../../usr/share/astal/gjs/index.ts
+import { default as default3 } from "gi://AstalIO?version=0.1";
+
+// ../../../../usr/share/astal/gjs/file.ts
+import Astal8 from "gi://AstalIO";
+import Gio from "gi://Gio?version=2.0";
+function readFileAsync(path) {
+  return new Promise((resolve, reject) => {
+    Astal8.read_file_async(path, (_, res) => {
+      try {
+        resolve(Astal8.read_file_finish(res) || "");
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+function monitorFile(path, callback) {
+  return Astal8.monitor_file(path, (file, event) => {
+    callback(file, event);
+  });
+}
+
+// ../../../../usr/share/astal/gjs/gobject.ts
+import GObject4 from "gi://GObject";
+import { default as default2 } from "gi://GLib?version=2.0";
+var meta = Symbol("meta");
+var priv = Symbol("priv");
+var { ParamSpec, ParamFlags } = GObject4;
+var kebabify2 = (str) => str.replace(/([a-z])([A-Z])/g, "$1-$2").replaceAll("_", "-").toLowerCase();
+function register(options = {}) {
+  return function(cls) {
+    const t = options.Template;
+    if (typeof t === "string" && !t.startsWith("resource://") && !t.startsWith("file://")) {
+      options.Template = new TextEncoder().encode(t);
+    }
+    GObject4.registerClass({
+      Signals: { ...cls[meta]?.Signals },
+      Properties: { ...cls[meta]?.Properties },
+      ...options
+    }, cls);
+    delete cls[meta];
+  };
+}
+function property(declaration = Object) {
+  return function(target, prop, desc) {
+    target.constructor[meta] ??= {};
+    target.constructor[meta].Properties ??= {};
+    const name = kebabify2(prop);
+    if (!desc) {
+      Object.defineProperty(target, prop, {
+        get() {
+          return this[priv]?.[prop] ?? defaultValue(declaration);
+        },
+        set(v) {
+          if (v !== this[prop]) {
+            this[priv] ??= {};
+            this[priv][prop] = v;
+            this.notify(name);
+          }
+        }
+      });
+      Object.defineProperty(target, `set_${name.replace("-", "_")}`, {
+        value(v) {
+          this[prop] = v;
+        }
+      });
+      Object.defineProperty(target, `get_${name.replace("-", "_")}`, {
+        value() {
+          return this[prop];
+        }
+      });
+      target.constructor[meta].Properties[kebabify2(prop)] = pspec(name, ParamFlags.READWRITE, declaration);
+    } else {
+      let flags = 0;
+      if (desc.get) flags |= ParamFlags.READABLE;
+      if (desc.set) flags |= ParamFlags.WRITABLE;
+      target.constructor[meta].Properties[kebabify2(prop)] = pspec(name, flags, declaration);
+    }
+  };
+}
+function pspec(name, flags, declaration) {
+  if (declaration instanceof ParamSpec)
+    return declaration;
+  switch (declaration) {
+    case String:
+      return ParamSpec.string(name, "", "", flags, "");
+    case Number:
+      return ParamSpec.double(name, "", "", flags, -Number.MAX_VALUE, Number.MAX_VALUE, 0);
+    case Boolean:
+      return ParamSpec.boolean(name, "", "", flags, false);
+    case Object:
+      return ParamSpec.jsobject(name, "", "", flags);
+    default:
+      return ParamSpec.object(name, "", "", flags, declaration.$gtype);
+  }
+}
+function defaultValue(declaration) {
+  if (declaration instanceof ParamSpec)
+    return declaration.get_default_value();
+  switch (declaration) {
+    case String:
+      return "";
+    case Number:
+      return 0;
+    case Boolean:
+      return false;
+    case Object:
+    default:
+      return null;
+  }
+}
+
+// ../../../../usr/share/astal/gjs/gtk3/jsx-runtime.ts
+function isArrowFunction(func) {
+  return !Object.hasOwn(func, "prototype");
+}
+function jsx(ctor, { children, ...props }) {
+  children ??= [];
+  if (!Array.isArray(children))
+    children = [children];
+  children = children.filter(Boolean);
+  if (children.length === 1)
+    props.child = children[0];
+  else if (children.length > 1)
+    props.children = children;
+  if (typeof ctor === "string") {
+    return new ctors[ctor](props);
+  }
+  if (isArrowFunction(ctor))
+    return ctor(props);
+  return new ctor(props);
+}
+var ctors = {
+  box: Box,
+  button: Button,
+  centerbox: CenterBox,
+  circularprogress: CircularProgress,
+  drawingarea: DrawingArea,
+  entry: Entry,
+  eventbox: EventBox,
+  // TODO: fixed
+  // TODO: flowbox
+  icon: Icon,
+  label: Label,
+  levelbar: LevelBar,
+  // TODO: listbox
+  menubutton: MenuButton,
+  overlay: Overlay,
+  revealer: Revealer,
+  scrollable: Scrollable,
+  slider: Slider,
+  stack: Stack,
+  switch: Switch,
+  window: Window
+};
+var jsxs = jsx;
+
+// src/panel.tsx
+function Panel({
+  name,
+  className,
+  anchor,
+  layer,
+  exclusivity,
+  child,
+  children,
+  box,
+  ...otherProps
+}) {
+  return /* @__PURE__ */ jsx(
+    "window",
+    {
+      name,
+      className: className ?? `${name} create panel`,
+      anchor,
+      layer: layer ?? Astal7.Layer.TOP,
+      exclusivity: exclusivity ?? Astal7.Exclusivity.IGNORE,
+      ...otherProps,
+      keymode: Astal7.Keymode.ON_DEMAND,
+      onKeyPressEvent: (self, event) => {
+        if (event.get_keyval()[1] === Gdk.KEY_Escape && !self.className.includes("destroy"))
+          PanelManager.closePanel(name);
+      },
+      children: /* @__PURE__ */ jsx("box", { className: "content", ...box, children: child ?? children })
+    }
+  );
+}
+
+// src/widgets/bar/bar.tsx
+import AstalHyprland2 from "gi://AstalHyprland?version=0.1";
+
+// src/widgets/bar/bar-module.tsx
+function BarModule({
+  className,
+  eventbox,
+  box,
+  child,
+  children
+}) {
+  return /* @__PURE__ */ jsx("eventbox", { className, ...eventbox, children: /* @__PURE__ */ jsx("box", { className: "module", ...box, children: child ?? children }) });
+}
+
+// src/widgets/bar/launcher.tsx
+function BarLauncher() {
+  const revealLabel = Variable(false);
+  return /* @__PURE__ */ jsxs(
+    BarModule,
+    {
+      className: "launcher",
+      eventbox: {
+        onClick: () => console.log("Hi"),
+        onHover: () => revealLabel.set(true),
+        onHoverLost: () => revealLabel.set(false)
+      },
+      children: [
+        /* @__PURE__ */ jsx("label", { label: "\u{F08C7}", className: "icon" }),
+        /* @__PURE__ */ jsx(
+          "revealer",
+          {
+            transitionDuration: 500,
+            transitionType: Gtk4.RevealerTransitionType.SLIDE_RIGHT,
+            revealChild: bind(revealLabel).as(Boolean),
+            css: "padding-left: 10px;",
+            children: /* @__PURE__ */ jsx("label", { label: "launcher" })
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/widgets/bar/workspaces.tsx
+import AstalHyprland from "gi://AstalHyprland?version=0.1";
+function BarWorkspaces() {
+  const Hyprland = AstalHyprland.get_default();
+  return /* @__PURE__ */ jsx(
+    BarModule,
+    {
+      className: "workspaces",
+      box: {
+        spacing: 12
+      },
+      children: bind(Hyprland, "workspaces").as((wss) => {
+        const workspaces = [
+          { id: 1, glyph: "\uF121" },
+          { id: 2, glyph: "\uF269" },
+          { id: 3, glyph: "\uF11B" },
+          { id: 4, glyph: "\uF008" }
+        ];
+        wss.sort((a, b) => a.id - b.id).filter((ws) => ws.id > workspaces[workspaces.length - 1].id).forEach((ws) => workspaces.push({ id: ws.id, glyph: "\uF111" }));
+        return workspaces.map((ws) => /* @__PURE__ */ jsx(
+          "button",
+          {
+            className: bind(Hyprland, "focusedWorkspace").as(
+              (fw) => fw.id === ws.id ? "active" : "inactive"
+            ),
+            onClick: () => execAsync(`hyprctl dispatch workspace ${ws.id}`),
+            children: /* @__PURE__ */ jsx(
+              "label",
+              {
+                className: "icon",
+                halign: Gtk4.Align.CENTER,
+                label: ws.glyph
+              }
+            )
+          }
+        ));
+      })
+    }
+  );
+}
+
+// src/widgets/bar/sys-info.tsx
+import AstalTray from "gi://AstalTray?version=0.1";
+function BarSysInfo() {
+  const Tray = AstalTray.get_default();
+  const revealTray = Variable(false);
+  const ramUsage = Variable("0.0G").poll(2500, [
+    "bash",
+    "-c",
+    "free -hg | awk 'NR == 2 {print $3}' | sed 's/Gi/G/'"
+  ]);
+  const cpuUsage = Variable("0.0%").poll(2500, [
+    "bash",
+    "-c",
+    `top -bn1 | grep "Cpu(s)" | awk '{printf("%02d\\n", 100 - $8)}'`
+  ]);
+  return /* @__PURE__ */ jsxs("box", { children: [
+    /* @__PURE__ */ jsxs(
+      BarModule,
+      {
+        className: "sysinfo",
+        eventbox: {
+          onClick: () => revealTray.set(!revealTray.get())
+        },
+        box: {
+          spacing: 12,
+          onDestroy: () => {
+            ramUsage.drop();
+            cpuUsage.drop();
+          }
+        },
+        children: [
+          /* @__PURE__ */ jsxs("box", { children: [
+            /* @__PURE__ */ jsx("label", { className: "icon", label: "\uF0C9" }),
+            /* @__PURE__ */ jsx("label", { label: ramUsage((value) => ` ${value}`) })
+          ] }),
+          /* @__PURE__ */ jsxs("box", { children: [
+            /* @__PURE__ */ jsx("label", { className: "icon", label: "\uF2DB" }),
+            /* @__PURE__ */ jsx("label", { label: cpuUsage((value) => ` ${value}`) }),
+            /* @__PURE__ */ jsx("label", { className: "icon icon-pad-l", label: "\uF295" })
+          ] })
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsx(
+      "revealer",
+      {
+        transitionType: Gtk4.RevealerTransitionType.SLIDE_LEFT,
+        transitionDuration: 350,
+        revealChild: bind(revealTray).as(Boolean),
+        children: /* @__PURE__ */ jsx(BarModule, { className: "systray", children: bind(Tray, "items").as(
+          (items) => items.map((item) => {
+            return /* @__PURE__ */ jsx(
+              "menubutton",
+              {
+                tooltipMarkup: bind(item, "tooltipMarkup").as(String),
+                usePopover: false,
+                actionGroup: bind(item, "action-group").as((ag) => [
+                  "dbusmenu",
+                  ag
+                ]),
+                menuModel: bind(item, "menu-model"),
+                children: /* @__PURE__ */ jsx("icon", { gicon: bind(item, "gicon") })
+              }
+            );
+          })
+        ) })
+      }
+    )
+  ] });
+}
+
+// src/widgets/bar/audio.tsx
+import AstalWp2 from "gi://AstalWp?version=0.1";
+
+// src/lib/utils.ts
+var isPrimaryClick = (event) => event.button === Gdk.BUTTON_PRIMARY;
+var isMiddleClick = (event) => event.button === Gdk.BUTTON_MIDDLE;
+var isScrollUp = (event) => {
+  if (event.delta_y > 0) {
+    return true;
+  }
+  return false;
+};
+var isScrollDown = (event) => {
+  if (event.delta_y < 0) {
+    return true;
+  }
+  return false;
+};
+function symbolicStrength(value, array, max = 100) {
+  const interp = Math.floor(value / max * array.length);
+  return array[Math.min(interp, array.length - 1)];
+}
+function truncate(value, limit) {
+  if (value.length < limit) return value;
+  return `${value.slice(0, limit - 3).trim()}...`;
+}
+
+// src/lib/audio.ts
+import AstalWp from "gi://AstalWp?version=0.1";
+var wp = AstalWp.get_default();
+var speakerIcon = Variable.derive(
+  [
+    bind(wp?.audio.defaultSpeaker, "volume"),
+    bind(wp?.audio.defaultSpeaker, "mute")
+  ],
+  (volume, mute) => {
+    if (mute) return "\uEEE8";
+    return symbolicStrength(volume * 100, ["\uF026", "\uF027", "\uF028"]);
+  }
+);
+var microphoneIcon = Variable.derive(
+  [bind(wp?.audio.defaultMicrophone, "mute")],
+  (mute) => {
+    if (mute) return "\uF131";
+    return "\uF130";
+  }
+);
+
+// src/widgets/bar/audio.tsx
+function BarAudio() {
+  const wp3 = AstalWp2.get_default();
+  const handleVolumeScroll = (event, endpoint) => {
+    const x = 0.015;
+    if (isScrollUp(event)) endpoint.volume += x;
+    else if (isScrollDown(event))
+      if (endpoint.volume <= x) endpoint.volume = 0;
+      else endpoint.volume -= x;
+  };
+  return /* @__PURE__ */ jsxs(
+    BarModule,
+    {
+      className: "audio",
+      box: {
+        spacing: 12
+      },
+      children: [
+        /* @__PURE__ */ jsx(
+          "button",
+          {
+            onScroll: (_, event) => handleVolumeScroll(event, wp3.audio.defaultSpeaker),
+            onClick: (_, event) => {
+              if (isPrimaryClick(event)) PanelManager.togglePanel("audio" /* AUDIO */);
+              else if (isMiddleClick(event))
+                wp3.audio.defaultSpeaker.mute = !wp3.audio.defaultSpeaker.mute;
+            },
+            children: /* @__PURE__ */ jsxs("box", { children: [
+              /* @__PURE__ */ jsx(
+                "label",
+                {
+                  className: bind(wp3.audio.defaultSpeaker, "mute").as(
+                    (mute) => mute ? "icon danger" : "icon"
+                  ),
+                  label: speakerIcon()
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "label",
+                {
+                  label: bind(wp3.audio.defaultSpeaker, "volume").as(
+                    (volume) => ` ${String(Math.floor(volume * 100)).padStart(2, "0")}`
+                  )
+                }
+              ),
+              /* @__PURE__ */ jsx("label", { className: "icon icon-pad-l", label: "\uF295" })
+            ] })
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          "button",
+          {
+            onScroll: (_, event) => handleVolumeScroll(event, wp3.audio.defaultMicrophone),
+            onClick: (_, event) => {
+              if (isPrimaryClick(event)) PanelManager.togglePanel("audio" /* AUDIO */);
+              else if (isMiddleClick(event))
+                wp3.audio.defaultMicrophone.mute = !wp3.audio.defaultMicrophone.mute;
+            },
+            children: /* @__PURE__ */ jsxs("box", { children: [
+              /* @__PURE__ */ jsx(
+                "label",
+                {
+                  className: bind(wp3.audio.defaultMicrophone, "mute").as(
+                    (mute) => mute ? "icon danger" : "icon"
+                  ),
+                  label: microphoneIcon()
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "label",
+                {
+                  label: bind(wp3.audio.defaultMicrophone, "volume").as(
+                    (volume) => ` ${String(Math.floor(volume * 100)).padStart(2, "0")}`
+                  )
+                }
+              ),
+              /* @__PURE__ */ jsx("label", { className: "icon icon-pad-l", label: "\uF295" })
+            ] })
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/widgets/bar/info.tsx
+import AstalBattery3 from "gi://AstalBattery?version=0.1";
+
+// src/widgets/glance/glance-page.tsx
+function GlanceHeader({
+  icon,
+  label,
+  trailingLabel,
+  trailingIcon
+}) {
+  return /* @__PURE__ */ jsxs("box", { className: "header", children: [
+    /* @__PURE__ */ jsx(
+      "centerbox",
+      {
+        css: "min-width: 1.5em; padding-right: 0.5em;",
+        centerWidget: /* @__PURE__ */ jsx("label", { className: "icon", label: icon })
+      }
+    ),
+    /* @__PURE__ */ jsx("label", { label }),
+    /* @__PURE__ */ jsx(
+      "label",
+      {
+        halign: Gtk4.Align.END,
+        hexpand: true,
+        hexpandSet: trailingLabel ? true : false,
+        label: trailingLabel
+      }
+    ),
+    /* @__PURE__ */ jsx("label", { className: "icon", css: "margin-left: 0.2rem;", label: trailingIcon })
+  ] });
+}
+function GlancePage({
+  name,
+  child,
+  children,
+  ...otherProps
+}) {
+  return /* @__PURE__ */ jsx(
+    "box",
+    {
+      name,
+      className: `page ${name}`,
+      vertical: true,
+      valign: Gtk4.Align.START,
+      spacing: 12,
+      ...otherProps,
+      children: child ?? children
+    }
+  );
+}
+
+// src/lib/battery.ts
+import AstalBattery from "gi://AstalBattery?version=0.1";
+var battery = AstalBattery.get_default();
+function getBatteryIcon(percentage) {
+  const maxCapacity = exec(
+    "cat /sys/class/power_supply/BAT0/charge_control_end_threshold"
+  );
+  const icon = symbolicStrength(
+    percentage,
+    ["\uF244", "\uF243", "\uF242", "\uF241", "\uF240"],
+    Number(maxCapacity)
+  );
+  return icon;
+}
+var BatteryState = /* @__PURE__ */ ((BatteryState2) => {
+  BatteryState2["UNKNOWN"] = "unknown";
+  BatteryState2["CHARGING"] = "charging";
+  BatteryState2["DISCHARGING"] = "discharging";
+  BatteryState2["EMPTY"] = "empty";
+  BatteryState2["FULLY_CHARGED"] = "fully charged";
+  BatteryState2["PENDING_CHARGE"] = "pending charge";
+  BatteryState2["PENDING_DISCHARGE"] = "pending discharge";
+  return BatteryState2;
+})(BatteryState || {});
+var batteryIcon = Variable.derive(
+  [bind(battery, "percentage"), bind(battery, "state")],
+  (percentage, stateIndex) => {
+    const state = Object.values(BatteryState)[stateIndex];
+    if (state === "charging" /* CHARGING */) {
+      return "\uF0E7";
+    } else if (state === "pending charge" /* PENDING_CHARGE */) {
+      return "\uF1E6";
+    } else if (state == "discharging" /* DISCHARGING */) {
+      return getBatteryIcon(percentage * 100);
+    }
+  }
+);
+
+// src/widgets/glance/network.tsx
+function GlanceNetwork() {
+  return /* @__PURE__ */ jsx(
+    GlancePage,
+    {
+      name: "network" /* NETWORK */,
+      children: /* @__PURE__ */ jsx(GlanceHeader, { icon: "\uEF4B", label: "internet" })
+    }
+  );
+}
+
+// src/lib/time.ts
+var regex = new RegExp(/ (a.m.|p.m.)/, "i");
+var currentTime = Variable("").poll(
+  1e3,
+  () => (/* @__PURE__ */ new Date()).toLocaleTimeString("ro-RO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  }).replace(regex, "")
+);
+var currentDate = Variable("").poll(6e4, () => {
+  const date = /* @__PURE__ */ new Date();
+  const day = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday"
+  ][date.getDay()];
+  const month = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ][date.getMonth()];
+  const year = date.getFullYear();
+  const normalDate = String(date.getDate()).padStart(2, "0");
+  return `${day}, ${normalDate} ${month} ${year}`;
+});
+var currentSeconds = Variable("").poll(
+  1e3,
+  () => (/* @__PURE__ */ new Date()).toLocaleTimeString("ro-RO", {
+    second: "2-digit"
+  }).replace(regex, "")
+);
+
+// src/widgets/glance/time.tsx
+var Calendar = class extends astalify(Gtk4.Calendar) {
+  static {
+    GObject4.registerClass(this);
+  }
+  constructor(props) {
+    super(props);
+  }
+};
+function GlanceTime() {
+  return /* @__PURE__ */ jsxs(GlancePage, { name: "time" /* TIME */, children: [
+    /* @__PURE__ */ jsx("label", { className: "clock", label: currentTime() }),
+    /* @__PURE__ */ jsx("label", { className: "date", label: currentDate() }),
+    /* @__PURE__ */ jsx(Calendar, {})
+  ] });
+}
+
+// src/widgets/glance/battery.tsx
+import AstalBattery2 from "gi://AstalBattery?version=0.1";
+
+// src/services/tlp.ts
+var TLP = class extends GObject4.Object {
+  static get_default() {
+    if (!TLP.instance) {
+      TLP.instance = new TLP();
+    }
+    return TLP.instance;
+  }
+  constructor() {
+    super({ updateFrequency: 1e3, mode: "battery" /* BATTERY */ });
+    interval(
+      this.updateFrequency,
+      () => execAsync("sudo tlp-stat -m").then((result) => {
+        this.manual = result.includes("manual") ? true : false;
+        if (this.mode !== result) {
+          this.mode = result.replace(" (manual)", "").trim();
+        }
+      })
+    );
+  }
+};
+__publicField(TLP, "instance");
+__decorateClass([
+  property(Number)
+], TLP.prototype, "updateFrequency", 2);
+__decorateClass([
+  property(String)
+], TLP.prototype, "mode", 2);
+__decorateClass([
+  property(Boolean)
+], TLP.prototype, "manual", 2);
+TLP = __decorateClass([
+  register({ GTypeName: "TLP" })
+], TLP);
+
+// src/services/brightness.ts
+var get = (args) => Number(exec(`brightnessctl ${args}`));
+var screen = exec(`bash -c "ls -w1 /sys/class/backlight | head -1"`);
+var kbd = exec(
+  `bash -c "ls -w1 /sys/class/leds | grep '::kbd_backlight$' | head -1"`
+);
+var _kbdMax, _kbd, _screenMax, _screen;
+var Brightness = class extends GObject4.Object {
+  constructor() {
+    super();
+    __privateAdd(this, _kbdMax, kbd?.length ? get(`--device ${kbd} max`) : 0);
+    __privateAdd(this, _kbd, kbd?.length ? get(`--device ${kbd} get`) : 0);
+    __privateAdd(this, _screenMax, screen?.length ? get(`--device ${screen} max`) : 0);
+    __privateAdd(this, _screen, screen?.length ? get(`--device ${screen} get`) / (get(`--device ${screen} max`) || 1) * 100 : 0);
+    const screenPath = `/sys/class/backlight/${screen}/brightness`;
+    const kbdPath = `/sys/class/leds/${kbd}/brightness`;
+    monitorFile(screenPath, async (f) => {
+      const v = await readFileAsync(f);
+      __privateSet(this, _screen, Number(v) / __privateGet(this, _screenMax) * 100);
+      this.notify("screen");
+    });
+    monitorFile(kbdPath, async (f) => {
+      const v = await readFileAsync(f);
+      __privateSet(this, _kbd, Number(v) / __privateGet(this, _kbdMax));
+      this.notify("kbd");
+    });
+  }
+  static get_default() {
+    if (!Brightness.instance) {
+      Brightness.instance = new Brightness();
+    }
+    return Brightness.instance;
+  }
+  get kbd() {
+    return __privateGet(this, _kbd);
+  }
+  get screen() {
+    return __privateGet(this, _screen);
+  }
+  set kbd(value) {
+    if (value < 0 || value > __privateGet(this, _kbdMax) || !kbd?.length) return;
+    execAsync(`brightnessctl -d ${kbd} s ${value} -q`).then(() => {
+      __privateSet(this, _kbd, value);
+      this.notify("kbd");
+    });
+  }
+  set screen(percent) {
+    if (!screen?.length) return;
+    percent = Math.floor(percent);
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+    execAsync(`brightnessctl set ${percent}% -d ${screen} -q`).then(() => {
+      __privateSet(this, _screen, percent);
+      this.notify("screen");
+    });
+  }
+};
+_kbdMax = new WeakMap();
+_kbd = new WeakMap();
+_screenMax = new WeakMap();
+_screen = new WeakMap();
+__publicField(Brightness, "instance");
+__decorateClass([
+  property(Number)
+], Brightness.prototype, "kbd", 1);
+__decorateClass([
+  property(Number)
+], Brightness.prototype, "screen", 1);
+Brightness = __decorateClass([
+  register({ GTypeName: "Brightness" })
+], Brightness);
+
+// src/widgets/glance/battery.tsx
+function GlanceBattery() {
+  const Battery2 = AstalBattery2.get_default();
+  const brightness = Brightness.get_default();
+  const tlp = TLP.get_default();
+  const tlpMode = bind(tlp, "mode");
+  const headerLabel = Variable.derive(
+    [bind(Battery2, "state"), bind(Battery2, "percentage")],
+    (state, percentage) => `battery is currently ${Object.values(BatteryState)[state]} at ${Math.floor(percentage * 100)}`
+  );
+  const batteryLabel = Variable.derive(
+    [bind(tlp, "mode")],
+    (mode) => mode === "battery" /* BATTERY */ ? "> battery  " /* SELECT_BATTERY */ : "  battery  " /* BATTERY */
+  );
+  const autoLabel = Variable.derive(
+    [bind(tlp, "manual")],
+    (manual) => manual ? "  manual  " /* MANUAL */ : "   auto   " /* AUTO */
+  );
+  const autoHoveredLabel = Variable.derive(
+    [bind(tlp, "manual")],
+    (manual) => manual ? "> manual  " /* SELECT_MANUAL */ : " > auto   " /* SELECT_AUTO */
+  );
+  const acLabel = Variable.derive(
+    [bind(tlp, "mode")],
+    (mode) => mode === "AC" /* AC */ ? "  > ac    " /* SELECT_AC */ : "    ac    " /* AC */
+  );
+  const screenBrightness = bind(brightness, "screen");
+  return /* @__PURE__ */ jsxs(
+    GlancePage,
+    {
+      name: "battery" /* BATTERY */,
+      onDestroy: () => {
+        headerLabel.drop();
+        batteryLabel.drop();
+        autoLabel.drop();
+        autoHoveredLabel.drop();
+        acLabel.drop();
+      },
+      children: [
+        /* @__PURE__ */ jsx(
+          GlanceHeader,
+          {
+            icon: batteryIcon(),
+            label: headerLabel(),
+            trailingIcon: "\uF295"
+          }
+        ),
+        /* @__PURE__ */ jsxs("box", { className: "power-modes", vertical: true, spacing: 5, children: [
+          /* @__PURE__ */ jsx(GlanceHeader, { icon: "\uF0E7", label: "power modes" }),
+          /* @__PURE__ */ jsxs("box", { className: "segmented-slider", hexpand: true, children: [
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                hexpand: true,
+                label: "  battery  " /* BATTERY */,
+                onHover: (self) => self.label = "> battery  " /* SELECT_BATTERY */,
+                onHoverLost: (self) => self.label = batteryLabel.get(),
+                className: bind(tlp, "mode").as(
+                  (mode) => mode === "battery" /* BATTERY */ ? "active" : "inactive"
+                ),
+                setup: (self) => {
+                  self.label = batteryLabel.get();
+                  self.hook(batteryLabel, (self2) => {
+                    self2.label = batteryLabel.get();
+                  });
+                },
+                onClick: () => execAsync("sudo tlp bat")
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                hexpand: true,
+                label: "   auto   " /* AUTO */,
+                onHover: (self) => self.label = autoHoveredLabel.get(),
+                onHoverLost: (self) => self.label = autoLabel.get(),
+                setup: (self) => {
+                  self.label = autoLabel.get();
+                  self.hook(autoLabel, (self2) => {
+                    self2.label = autoLabel.get();
+                  });
+                },
+                onClick: () => execAsync("sudo tlp start")
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                hexpand: true,
+                label: "    ac    " /* AC */,
+                onHover: (self) => self.label = "  > ac    " /* SELECT_AC */,
+                onHoverLost: (self) => self.label = acLabel.get(),
+                className: bind(tlp, "mode").as(
+                  (mode) => mode === "AC" /* AC */ ? "active" : "inactive"
+                ),
+                setup: (self) => {
+                  self.label = acLabel.get();
+                  self.hook(tlpMode, (self2) => {
+                    self2.label = acLabel.get();
+                  });
+                },
+                onClick: () => execAsync("sudo tlp ac")
+              }
+            )
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("box", { className: "brightness", vertical: true, spacing: 5, children: [
+          /* @__PURE__ */ jsx(
+            GlanceHeader,
+            {
+              icon: "\uF185",
+              label: "brightness",
+              trailingLabel: screenBrightness.as((value) => `${Math.floor(value)}`),
+              trailingIcon: "\uF295"
+            }
+          ),
+          /* @__PURE__ */ jsx(
+            "slider",
+            {
+              drawValue: false,
+              min: 0,
+              max: 100,
+              value: screenBrightness.as((value) => Math.floor(value)),
+              step: 1,
+              setup: (self) => {
+                self.value = Math.floor(screenBrightness.get());
+                self.connect(
+                  "value-changed",
+                  (self2) => brightness.screen = self2.value
+                );
+              }
+            }
+          )
+        ] })
+      ]
+    }
+  );
+}
+
+// src/widgets/glance/glance.tsx
+var currentPage = Variable(
+  void 0
+);
+var GlancePages = () => {
+  return /* @__PURE__ */ jsxs(
+    "stack",
+    {
+      name: "pages",
+      className: "pages",
+      transitionType: Gtk4.StackTransitionType.SLIDE_UP_DOWN,
+      transitionDuration: 500,
+      expand: true,
+      shown: bind(currentPage),
+      children: [
+        /* @__PURE__ */ jsx(GlanceTime, {}),
+        /* @__PURE__ */ jsx(GlanceNetwork, {}),
+        /* @__PURE__ */ jsx(GlanceBattery, {})
+      ]
+    }
+  );
+};
+var GlanceColumn = () => {
+  return /* @__PURE__ */ jsxs("box", { className: "column", vertical: true, valign: Gtk4.Align.START, spacing: 10, children: [
+    /* @__PURE__ */ jsx(
+      "button",
+      {
+        onClick: () => currentPage.set("time" /* TIME */),
+        className: currentPage(
+          (page) => page === "time" /* TIME */ ? "active icon" : "inactive icon"
+        ),
+        label: "\uF017"
+      }
+    ),
+    /* @__PURE__ */ jsx(
+      "button",
+      {
+        onClick: () => currentPage.set("network" /* NETWORK */),
+        className: currentPage(
+          (page) => page === "network" /* NETWORK */ ? "active icon" : "inactive icon"
+        ),
+        label: "\u{F0928}"
+      }
+    ),
+    /* @__PURE__ */ jsx(
+      "button",
+      {
+        onClick: () => currentPage.set("battery" /* BATTERY */),
+        className: currentPage(
+          (page) => page === "battery" /* BATTERY */ ? "active icon" : "inactive icon"
+        ),
+        label: batteryIcon((icon) => icon)
+      }
+    ),
+    /* @__PURE__ */ jsx("button", { className: "icon", label: "\uF013" })
+  ] });
+};
+function Glance(pageToShow) {
+  if (PanelManager.activePanel.get() !== null) {
+    if (pageToShow !== currentPage.get()) {
+      currentPage.set(pageToShow);
+      return false;
+    } else return true;
+  }
+  currentPage.set(pageToShow);
+  return /* @__PURE__ */ jsxs(
+    Panel,
+    {
+      name: "glance" /* GLANCE */,
+      anchor: Astal7.WindowAnchor.TOP | Astal7.WindowAnchor.RIGHT,
+      box: {
+        valign: Gtk4.Align.END,
+        spacing: 10
+      },
+      children: [
+        /* @__PURE__ */ jsx(GlancePages, { page: pageToShow }),
+        /* @__PURE__ */ jsx(GlanceColumn, {})
+      ]
+    }
+  );
+}
+
+// src/widgets/bar/info.tsx
+var Battery = () => {
+  const battery2 = AstalBattery3.get_default();
+  const batteryActive = Variable.derive(
+    [currentPage, PanelManager.activePanel],
+    (page, panel) => page === "battery" /* BATTERY */ && panel === "glance" /* GLANCE */ ? "active battery" : panel !== "glance" /* GLANCE */ ? "battery" : "inactive battery"
+  );
+  return /* @__PURE__ */ jsx(
+    "button",
+    {
+      className: batteryActive(),
+      onClick: () => PanelManager.togglePanel("glance" /* GLANCE */, "battery" /* BATTERY */),
+      onDestroy: () => {
+        batteryActive.drop();
+      },
+      children: /* @__PURE__ */ jsxs("box", { children: [
+        /* @__PURE__ */ jsx("label", { className: "icon", label: batteryIcon() }),
+        /* @__PURE__ */ jsx(
+          "label",
+          {
+            className: "label",
+            label: bind(battery2, "percentage").as(
+              (p) => ` ${Math.floor(p * 100)}`
+            )
+          }
+        ),
+        /* @__PURE__ */ jsx("label", { className: "icon icon-pad-l", label: "\uF295" })
+      ] })
+    }
+  );
+};
+var Network = () => {
+  const networkActive = Variable.derive(
+    [currentPage, PanelManager.activePanel],
+    (page, panel) => page === "network" /* NETWORK */ && panel === "glance" /* GLANCE */ ? "active network" : panel !== "glance" /* GLANCE */ ? "network" : "inactive network"
+  );
+  return /* @__PURE__ */ jsx(
+    "button",
+    {
+      className: networkActive(),
+      onClick: () => PanelManager.togglePanel("glance" /* GLANCE */, "network" /* NETWORK */),
+      onDestroy: () => {
+        networkActive.drop();
+      },
+      children: /* @__PURE__ */ jsx("box", { children: /* @__PURE__ */ jsx("label", { className: "icon", label: "\u{F0928}" }) })
+    }
+  );
+};
+var Time2 = () => {
+  const timeActive = Variable.derive(
+    [currentPage, PanelManager.activePanel],
+    (page, panel) => page === "time" /* TIME */ && panel === "glance" /* GLANCE */ ? "active time" : panel !== "glance" /* GLANCE */ ? "time" : "inactive time"
+  );
+  const revealSeconds = Variable(false);
+  return /* @__PURE__ */ jsx(
+    "button",
+    {
+      className: timeActive(),
+      onClick: () => PanelManager.togglePanel("glance" /* GLANCE */, "time" /* TIME */),
+      onHover: () => revealSeconds.set(true),
+      onHoverLost: () => revealSeconds.set(false),
+      children: /* @__PURE__ */ jsxs("box", { children: [
+        /* @__PURE__ */ jsx(
+          "label",
+          {
+            className: "label",
+            label: currentTime((time) => time.slice(0, time.length - 3))
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          "revealer",
+          {
+            transitionType: Gtk4.RevealerTransitionType.SLIDE_LEFT,
+            transitionDuration: 500,
+            revealChild: bind(revealSeconds).as(Boolean),
+            children: /* @__PURE__ */ jsx(
+              "label",
+              {
+                className: "label",
+                label: bind(currentSeconds).as((s) => `:${s}`)
+              }
+            )
+          }
+        )
+      ] })
+    }
+  );
+};
+function BarInfo() {
+  return /* @__PURE__ */ jsxs(
+    BarModule,
+    {
+      className: "info",
+      box: {
+        spacing: 12
+      },
+      children: [
+        /* @__PURE__ */ jsx(Battery, {}),
+        /* @__PURE__ */ jsx(Network, {}),
+        /* @__PURE__ */ jsx(Time2, {})
+      ]
+    }
+  );
+}
+
+// src/widgets/bar/power.tsx
+function BarPower() {
+  return /* @__PURE__ */ jsx(
+    BarModule,
+    {
+      className: bind(PanelManager.activePanel).as(
+        (panel) => panel === "powermenu" /* POWERMENU */ ? "active power" : "inactive power"
+      ),
+      eventbox: {
+        onClick: () => PanelManager.togglePanel("powermenu" /* POWERMENU */)
+      },
+      children: /* @__PURE__ */ jsx("label", { className: "icon", label: "\uF011" })
+    }
+  );
+}
+
+// src/widgets/bar/bar.tsx
+var userRevealBar = Variable(false);
+function Bar(monitor = 0) {
+  const Hyprland = AstalHyprland2.get_default();
+  const isHovered = Variable(false);
+  const focusedClient = bind(Hyprland, "focusedClient");
+  const activePanel = PanelManager.activePanel;
+  const revealBar = Variable.derive(
+    [isHovered, focusedClient, activePanel, userRevealBar],
+    (isHovered2, focusedClient2, activePanel2, userRevealBar2) => isHovered2 || focusedClient2 === null || activePanel2 !== null || userRevealBar2
+  );
+  const barLayer = Variable.derive(
+    [activePanel],
+    (activePanel2) => activePanel2 !== null ? Astal7.Layer.OVERLAY : Astal7.Layer.TOP
+  );
+  return /* @__PURE__ */ jsx(
+    "window",
+    {
+      name: "bar" /* BAR */,
+      monitor,
+      layer: bind(barLayer),
+      exclusivity: Astal7.Exclusivity.NORMAL,
+      anchor: Astal7.WindowAnchor.TOP | Astal7.WindowAnchor.LEFT | Astal7.WindowAnchor.RIGHT,
+      application: app_default,
+      onDestroy: () => {
+        revealBar.drop();
+        barLayer.drop();
+      },
+      keymode: Astal7.Keymode.ON_DEMAND,
+      onKeyPressEvent: (self, event) => {
+        if (event.get_keyval()[1] === Gdk.KEY_Escape) {
+          isHovered.set(false);
+          if (PanelManager.activePanel.get() !== null)
+            PanelManager.togglePanel(PanelManager.activePanel.get());
+        }
+      },
+      children: /* @__PURE__ */ jsx(
+        "eventbox",
+        {
+          onHover: () => isHovered.set(true),
+          onHoverLost: () => isHovered.set(false),
+          clickThrough: true,
+          children: /* @__PURE__ */ jsx("box", { className: "bar", hexpand: true, vexpand: true, children: /* @__PURE__ */ jsx(
+            "revealer",
+            {
+              transitionType: Gtk4.RevealerTransitionType.SLIDE_DOWN,
+              transitionDuration: 350,
+              revealChild: bind(revealBar).as(Boolean),
+              children: /* @__PURE__ */ jsx(
+                "centerbox",
+                {
+                  hexpand: true,
+                  vexpand: true,
+                  startWidget: /* @__PURE__ */ jsxs("box", { css: "background-color: transparent;", children: [
+                    /* @__PURE__ */ jsx(BarLauncher, {}),
+                    /* @__PURE__ */ jsx(BarWorkspaces, {}),
+                    /* @__PURE__ */ jsx(BarSysInfo, {})
+                  ] }),
+                  endWidget: /* @__PURE__ */ jsxs(
+                    "box",
+                    {
+                      css: "background-color: transparent;",
+                      hexpand: true,
+                      halign: Gtk4.Align.END,
+                      children: [
+                        /* @__PURE__ */ jsx(BarAudio, {}),
+                        /* @__PURE__ */ jsx(BarInfo, {}),
+                        /* @__PURE__ */ jsx(BarPower, {})
+                      ]
+                    }
+                  )
+                }
+              )
+            }
+          ) })
+        }
+      )
+    }
+  );
+}
+
+// src/widgets/powermenu/powermenu.tsx
+var iconButtonMap = /* @__PURE__ */ new Map();
+var currentSelection = Variable(null);
+var PowerButton = ({ icon, action, command }) => {
+  const iconButton = /* @__PURE__ */ jsx(
+    "button",
+    {
+      className: "power-icon",
+      name: "selected",
+      onClicked: (self) => {
+        if (currentSelection.get() === action) {
+          self.className = "power-icon";
+          currentSelection.set(null);
+          PanelManager.togglePanel("powermenu" /* POWERMENU */);
+          execAsync(command).catch((err) => console.log(err));
+        } else {
+          iconButtonMap.forEach(
+            (button) => button.set({ className: "power-icon" })
+          );
+          self.className = "power-icon selected";
+          currentSelection.set(action);
+        }
+      },
+      onHoverLost: () => {
+        currentSelection.set(null);
+        iconButtonMap.forEach(
+          (button) => button.set({ className: "power-icon" })
+        );
+      },
+      children: /* @__PURE__ */ jsx("label", { className: "icon", label: icon })
+    }
+  );
+  iconButtonMap.set(action, iconButton);
+  return /* @__PURE__ */ jsx("eventbox", { className: "power-button", children: /* @__PURE__ */ jsxs("box", { halign: Gtk4.Align.END, children: [
+    /* @__PURE__ */ jsx("label", { className: "transition-text", label: action }),
+    iconButton
+  ] }) });
+};
+function PowerMenu() {
+  const powerButtonData = [
+    {
+      icon: "\uF011",
+      action: "Shutdown" /* SHUTDOWN */,
+      command: "systemctl poweroff"
+    },
+    {
+      icon: "\uF021",
+      action: "Restart" /* RESTART */,
+      command: "systemctl reboot"
+    },
+    { icon: "\uF08B", action: "Log Out" /* LOG_OUT */, command: "hyprlock" },
+    {
+      icon: "\uF186",
+      action: "Sleep" /* SLEEP */,
+      command: "systemctl suspend"
+    }
+  ];
+  return /* @__PURE__ */ jsx(
+    Panel,
+    {
+      name: "powermenu" /* POWERMENU */,
+      layer: Astal7.Layer.TOP,
+      exclusivity: Astal7.Exclusivity.NORMAL,
+      anchor: Astal7.WindowAnchor.RIGHT,
+      onDestroy: () => currentSelection.set(null),
+      css: "background-color: transparent;",
+      widthRequest: 325,
+      box: {
+        vertical: true,
+        valign: Gtk4.Align.CENTER,
+        halign: Gtk4.Align.END,
+        spacing: 2
+      },
+      children: powerButtonData.map(({ icon, action, command }) => /* @__PURE__ */ jsx(PowerButton, { icon, action, command }))
+    }
+  );
+}
+
+// src/widgets/audio/audio.tsx
+import AstalWp3 from "gi://AstalWp?version=0.1";
+var wp2 = AstalWp3.get_default();
+var speaker = wp2?.audio.defaultSpeaker;
+var microphone = wp2?.audio.defaultMicrophone;
+var MediaHeader = ({
+  main,
+  icon,
+  endpoint,
+  mediaClass,
+  callback
+}) => {
+  const isSpeaker = mediaClass === AstalWp3.MediaClass.AUDIO_SPEAKER;
+  const isMicrophone = mediaClass === AstalWp3.MediaClass.AUDIO_MICROPHONE;
+  const isStream = mediaClass === AstalWp3.MediaClass.AUDIO_STREAM;
+  const isRecorder = mediaClass === AstalWp3.MediaClass.AUDIO_RECORDER;
+  return /* @__PURE__ */ jsxs("box", { vertical: true, spacing: 5, children: [
+    /* @__PURE__ */ jsxs("box", { className: "header", children: [
+      /* @__PURE__ */ jsx(
+        "centerbox",
+        {
+          css: "min-width: 1.5em; padding-right: 0.5em;",
+          centerWidget: /* @__PURE__ */ jsx(
+            "button",
+            {
+              onClick: (_, event) => isPrimaryClick(event) && (endpoint.mute = !endpoint.mute),
+              className: bind(endpoint, "mute").as(
+                (mute) => mute ? "icon danger" : "icon"
+              ),
+              label: icon
+            }
+          )
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          label: bind(endpoint, "description").as(
+            (desc) => truncate(desc, 50)
+          )
+        }
+      ),
+      /* @__PURE__ */ jsx("box", { expand: true }),
+      /* @__PURE__ */ jsxs("box", { children: [
+        /* @__PURE__ */ jsx(
+          "label",
+          {
+            label: bind(endpoint, "volume").as(
+              (vol) => Math.floor(vol * 100).toString()
+            )
+          }
+        ),
+        /* @__PURE__ */ jsx("label", { className: "icon icon-pad-l", label: "\uF295" })
+      ] }),
+      (isSpeaker || isMicrophone) && /* @__PURE__ */ jsx(
+        "button",
+        {
+          css: "margin-left: 0.5rem;",
+          className: "icon",
+          label: "\uF03A",
+          onClick: callback
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsx(
+      "slider",
+      {
+        className: "slider",
+        drawValue: false,
+        value: bind(endpoint, "volume"),
+        onDragged: ({ value }) => endpoint.volume = value
+      }
+    )
+  ] });
+};
+var AudioDevice = ({
+  icon,
+  endpoint,
+  mediaClass,
+  callback,
+  showRevealer
+}) => {
+  const isSpeaker = mediaClass === AstalWp3.MediaClass.AUDIO_SPEAKER;
+  const isMicrophone = mediaClass === AstalWp3.MediaClass.AUDIO_MICROPHONE;
+  let endpoints;
+  switch (mediaClass) {
+    case AstalWp3.MediaClass.AUDIO_SPEAKER:
+      endpoint = wp2?.audio.defaultSpeaker;
+      endpoints = "streams";
+      break;
+    case AstalWp3.MediaClass.AUDIO_MICROPHONE:
+      endpoint = wp2?.audio.defaultMicrophone;
+      endpoints = "recorders";
+      break;
+    case AstalWp3.MediaClass.AUDIO_STREAM:
+      break;
+    case AstalWp3.MediaClass.AUDIO_RECORDER:
+      break;
+    default:
+      break;
+  }
+  return /* @__PURE__ */ jsxs(
+    "box",
+    {
+      vertical: true,
+      className: showRevealer(
+        (show) => show ? "device active" : "device inactive"
+      ),
+      spacing: 5,
+      children: [
+        /* @__PURE__ */ jsx(
+          MediaHeader,
+          {
+            main: true,
+            icon,
+            endpoint,
+            mediaClass,
+            callback
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          "revealer",
+          {
+            transitionType: Gtk4.RevealerTransitionType.SLIDE_DOWN,
+            transitionDuration: 500,
+            revealChild: showRevealer(),
+            children: /* @__PURE__ */ jsx("box", { vertical: true, spacing: 5, children: bind(wp2?.audio, endpoints).as((streams) => {
+              if (streams.length === 0)
+                return /* @__PURE__ */ jsx("label", { label: "there are no recorders" });
+              return streams.map((stream) => {
+                const streamIcon = Variable.derive(
+                  [bind(stream, "volume"), bind(stream, "mute")],
+                  (vol, mute) => {
+                    if (mute) return "\uEEE8";
+                    return symbolicStrength(vol * 100, ["\uF026", "\uF027", "\uF028"]);
+                  }
+                );
+                return /* @__PURE__ */ jsx(
+                  MediaHeader,
+                  {
+                    icon: streamIcon(),
+                    endpoint: stream,
+                    callback: () => {
+                    }
+                  }
+                );
+              });
+            }) })
+          }
+        )
+      ]
+    }
+  );
+};
+function Audio() {
+  const revealStreams = Variable(false);
+  const revealRecorders = Variable(false);
+  return /* @__PURE__ */ jsxs(
+    Panel,
+    {
+      name: "audio" /* AUDIO */,
+      anchor: Astal7.WindowAnchor.TOP | Astal7.WindowAnchor.RIGHT,
+      box: {
+        spacing: 12,
+        vertical: true
+      },
+      children: [
+        /* @__PURE__ */ jsx(
+          AudioDevice,
+          {
+            icon: speakerIcon(),
+            mediaClass: speaker.mediaClass,
+            callback: (_, event) => revealStreams.set(!revealStreams.get()),
+            showRevealer: revealStreams
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          AudioDevice,
+          {
+            icon: microphoneIcon(),
+            mediaClass: microphone.mediaClass,
+            callback: (_, event) => revealRecorders.set(!revealRecorders.get()),
+            showRevealer: revealRecorders
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/panel-manager.tsx
+var _PanelManager = class {
+  panelRegistry = /* @__PURE__ */ new Map();
+  activePanel = Variable(null);
+  constructor() {
+    this.registerDefaultPanels();
+  }
+  /**
+   * Register default panels during initialization.
+   */
+  registerDefaultPanels() {
+    this.panelRegistry.set("bar" /* BAR */, Bar);
+    this.panelRegistry.set("powermenu" /* POWERMENU */, PowerMenu);
+    this.panelRegistry.set("glance" /* GLANCE */, Glance);
+    this.panelRegistry.set("audio" /* AUDIO */, Audio);
+  }
+  /**
+   * Spawns a panel for the bar on the specified monitor.
+   */
+  spawnBar(monitor = 0) {
+    const bar = this.panelRegistry.get("bar" /* BAR */);
+    if (!bar) {
+      this.logAndExit("Bar panel not registered in the registry.");
+    }
+    return bar(monitor);
+  }
+  /**
+   * Toggles the visibility of the specified panel.
+   * If the panel is already visible, it will be removed.
+   * If a different panel is visible, it will replace that panel.
+   */
+  togglePanel(panelID, args = void 0) {
+    const windowToSpawn = this.panelRegistry.get(panelID);
+    if (!windowToSpawn) {
+      this.logAndExit(`PanelID "${panelID}" not found in registry.`);
+    }
+    if (this.activePanel.get() === panelID) {
+      if (args) {
+        const shouldDestroy = windowToSpawn(args);
+        if (shouldDestroy) this.closePanel(panelID);
+        return;
+      }
+      this.closePanel(panelID);
+      return;
+    } else if (this.activePanel.get() !== null)
+      this.closePanel(this.activePanel.get());
+    this.toggleOverlayFor(panelID);
+    app_default.add_window(windowToSpawn(args));
+    this.activePanel.set(panelID);
+  }
+  /**
+   * Removes the specified panel by name.
+   */
+  closePanel(panelID) {
+    const windowToRemove = app_default.get_window(panelID);
+    if (!windowToRemove) {
+      this.logAndExit(`PanelID "${panelID}" not found for removal.`);
+    }
+    this.toggleOverlayFor(panelID);
+    this.destroyWindow(windowToRemove);
+    if (this.activePanel.get() === panelID) {
+      this.activePanel.set(null);
+    }
+  }
+  destroyWindow(window, name) {
+    window.set({ className: `${name ?? window.name} destroy panel` });
+    app_default.remove_window(window);
+    timeout(250, () => window.destroy());
+  }
+  /**
+   * Toggles the overlay for a panel.
+   */
+  toggleOverlayFor(panelID) {
+    const monitorCount = Gdk.Display.get_default()?.get_n_monitors();
+    if (!monitorCount) {
+      console.error(
+        "Monitor count not found. Ensure at least one monitor is connected."
+      );
+      return;
+    }
+    const overlayPanels = app_default.get_windows().filter(
+      (w) => w.name?.match(/overlay-\d+/)
+    );
+    if (overlayPanels.length > 0) {
+      overlayPanels.forEach(
+        (overlay) => this.destroyWindow(overlay, "overlay" /* OVERLAY */)
+      );
+    } else {
+      for (let monitor = 0; monitor < monitorCount; monitor++) {
+        app_default.add_window(this.createOverlay(panelID, monitor));
+      }
+    }
+  }
+  /**
+   * Creates an overlay panel for the specified monitor.
+   */
+  createOverlay(panelID, monitor) {
+    return /* @__PURE__ */ jsx(
+      "window",
+      {
+        name: `overlay-${monitor}`,
+        className: "overlay create",
+        monitor,
+        layer: Astal7.Layer.TOP,
+        anchor: Astal7.WindowAnchor.TOP | Astal7.WindowAnchor.LEFT | Astal7.WindowAnchor.RIGHT | Astal7.WindowAnchor.BOTTOM,
+        exclusivity: Astal7.Exclusivity.NORMAL,
+        keymode: Astal7.Keymode.ON_DEMAND,
+        onKeyPressEvent: (self, event) => {
+          if (event.get_keyval()[1] === Gdk.KEY_Escape && !self.className.includes("destroy"))
+            this.closePanel(panelID);
+        },
+        children: /* @__PURE__ */ jsx(
+          "button",
+          {
+            className: "content",
+            hexpand: true,
+            vexpand: true,
+            onClick: (self) => {
+              const parent = self.get_parent();
+              if (!parent.className.includes("destroy")) this.closePanel(panelID);
+            },
+            css: "background-color: rgba(0,0,0,0.0)"
+          }
+        )
+      }
+    );
+  }
+  /**
+   * Logs an error message and exits the application.
+   */
+  logAndExit(message) {
+    console.error(`Error: ${message}`);
+    app_default.quit();
+    throw new Error(message);
+  }
+};
+var PanelManager2 = new _PanelManager();
+var panel_manager_default = PanelManager2;
+
+// app.ts
+globalThis.PanelManager = panel_manager_default;
+var scssFile = `${"/home/biskyy/.config/ags"}/src/style.scss`;
+var cssFile = `${"/home/biskyy/.config/ags"}/style.css`;
+var sassCommand = `sass -I ${"/home/biskyy/.config/ags"}/src ${scssFile} ${cssFile}`;
+var recompileCSS = () => {
+  try {
+    exec(sassCommand);
+    app_default.apply_css(cssFile, true);
+  } catch (error) {
+    console.error(error);
+  }
+};
+monitorFile(scssFile, () => recompileCSS());
+monitorFile(`${"/home/biskyy/.config/ags"}/src/widgets/bar/bar.scss`, () => recompileCSS());
+monitorFile(
+  `${"/home/biskyy/.config/ags"}/src/widgets/powermenu/powermenu.scss`,
+  () => recompileCSS()
+);
+monitorFile(`${"/home/biskyy/.config/ags"}/src/widgets/glance/glance.scss`, () => recompileCSS());
+monitorFile(`${"/home/biskyy/.config/ags"}/src/widgets/audio/audio.scss`, () => recompileCSS());
+exec(sassCommand);
+app_default.start({
+  css: style_default,
+  main() {
+    panel_manager_default.spawnBar();
+  }
+});

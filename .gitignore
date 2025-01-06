@@ -3,6 +3,12 @@
 !README.md
 !.gitignore
 
+!yay/
+!yay/**
+
+!.icons/
+!.icons/**
+
 !zsh
 !zsh/**
 
